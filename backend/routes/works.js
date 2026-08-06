@@ -1,0 +1,16 @@
+const express = require('express');
+const router = express.Router();
+const controller = require('../controllers/workController');
+const { requireAuth, requireRole } = require('../middleware/auth');
+const { uploadWork } = require('../middleware/upload');
+
+router.use(requireAuth);
+
+router.get('/', controller.list);
+router.get('/upload', controller.showUpload);
+router.post('/upload', uploadWork.single('file'), controller.upload);
+router.get('/:id', controller.detail);
+router.post('/:id/delete', controller.delete);
+router.post('/:id/reject', requireRole('admin'), controller.reject);
+
+module.exports = router;

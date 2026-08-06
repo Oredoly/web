@@ -1,0 +1,379 @@
+const db = require('../config/database');
+const fs = require('fs');
+const { COURSE_MANAGER_ROLES } = require('../middleware/auth');
+
+function canManageCourse(user, courseId) {
+  if (user.role === 'admin') return true;
+  const course = db.prepare('SELECT created_by FROM courses WHERE id = ?').get(courseId);
+  return !!course && course.created_by === user.id;
+}
+
+// 课程列表
+exports.list = (req, res) => {
+  try {
+    let sql = `
+      SELECT c.*, u.real_name as creator_name,
+        (SELECT COUNT(*) FROM enrollments WHERE course_id = c.id) as student_count
+      FROM courses c
+      LEFT JOIN users u ON c.created_by = u.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (!COURSE_MANAGER_ROLES.includes(req.session.user.role)) {
+      sql += " AND c.status = 'published'";
+    }
+
+    if (req.query.theme) { sql += ' AND c.theme = ?'; params.push(req.query.theme); }
+    if (req.query.grade_level) { sql += ' AND c.grade_level = ?'; params.push(req.query.grade_level); }
+    if (req.query.difficulty) { sql += ' AND c.difficulty = ?'; params.push(req.query.difficulty); }
+    if (req.query.status) { sql += ' AND c.status = ?'; params.push(req.query.status); }
+
+    sql += ' ORDER BY c.updated_at DESC';
+
+    const courses = db.prepare(sql).all(...params);
+    const themes = db.prepare('SELECT DISTINCT theme FROM courses WHERE theme IS NOT NULL').all();
+
+    res.render('courses/list', { title: '课程管理', courses, themes, filters: req.query });
+  } catch (err) {
+    console.error('课程列表错误:', err);
+    req.flash('error', '加载课程列表失败');
+    res.redirect('/dashboard');
+  }
+};
+
+// 创建课程页面
+exports.showCreate = (req, res) => {
+  res.render('courses/create', { title: '创建课程', course: {}, errors: [] });
+};
+
+// 创建课程
+exports.create = (req, res) => {
+  try {
+    const { title, theme, description, driving_question, story_line,
+            grade_level, difficulty, total_hours, materials_needed } = req.body;
+
+    if (!title || !grade_level || !difficulty) {
+      return res.render('courses/create', {
+        title: '创建课程', course: req.body,
+        errors: ['课程名称、适用学段和难度等级为必填项']
+      });
+    }
+
+    const result = db.prepare(
+      `INSERT INTO courses (title, theme, description, driving_question, story_line,
+        grade_level, difficulty, total_hours, materials_needed, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(title, theme || null, description || null, driving_question || null,
+         story_line || null, grade_level, difficulty, total_hours || null,
+         materials_needed || null, req.session.user.id);
+
+    req.flash('success', '课程创建成功！现在可以添加课时和上传资源');
+    res.redirect(`/courses/${result.lastInsertRowid}`);
+  } catch (err) {
+    console.error('创建课程错误:', err);
+    res.render('courses/create', { title: '创建课程', course: req.body, errors: ['创建失败，请稍后重试'] });
+  }
+};
+
+// 课程详情
+exports.detail = (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const course = db.prepare(
+      `SELECT c.*, u.real_name as creator_name
+       FROM courses c LEFT JOIN users u ON c.created_by = u.id
+       WHERE c.id = ?`
+    ).get(id);
+
+    if (!course) {
+      req.flash('error', '课程不存在');
+      return res.redirect('/courses');
+    }
+
+    if (!COURSE_MANAGER_ROLES.includes(req.session.user.role) && course.status !== 'published') {
+      req.flash('error', '课程不存在');
+      return res.redirect('/courses');
+    }
+
+    const lessons = db.prepare('SELECT * FROM lessons WHERE course_id = ? ORDER BY sort_order').all(id);
+    const resources = db.prepare('SELECT * FROM resources WHERE course_id = ? ORDER BY created_at DESC').all(id);
+    const enrollments = db.prepare(
+      `SELECT e.*, u.real_name as student_name, u.username, s.name as school_name, c2.name as class_name
+       FROM enrollments e
+       JOIN users u ON e.student_id = u.id
+       LEFT JOIN schools s ON u.school_id = s.id
+       LEFT JOIN classes c2 ON u.class_id = c2.id
+       WHERE e.course_id = ?
+       ORDER BY e.enrolled_at DESC`
+    ).all(id);
+
+    res.render('courses/detail', { title: course.title, course, lessons, resources, enrollments });
+  } catch (err) {
+    console.error('课程详情错误:', err);
+    req.flash('error', '加载课程详情失败');
+    res.redirect('/courses');
+  }
+};
+
+// 编辑课程页面
+exports.showEdit = (req, res) => {
+  try {
+    const course = db.prepare('SELECT * FROM courses WHERE id = ?').get(req.params.id);
+    if (!course) {
+      req.flash('error', '课程不存在');
+      return res.redirect('/courses');
+    }
+    if (!canManageCourse(req.session.user, course.id)) {
+      req.flash('error', '无权管理该课程');
+      return res.redirect('/courses');
+    }
+    res.render('courses/edit', { title: '编辑课程', course, errors: [] });
+  } catch (err) {
+    console.error('加载编辑页错误:', err);
+    req.flash('error', '加载失败');
+    res.redirect('/courses');
+  }
+};
+
+// 更新课程
+exports.update = (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!canManageCourse(req.session.user, id)) {
+      req.flash('error', '无权管理该课程');
+      return res.redirect('/courses');
+    }
+    const fields = ['title','theme','description','driving_question','story_line',
+                    'grade_level','difficulty','total_hours','materials_needed','status'];
+    const sets = [];
+    const values = [];
+
+    fields.forEach(f => {
+      if (req.body[f] !== undefined) {
+        sets.push(`${f} = ?`);
+        values.push(req.body[f] || null);
+      }
+    });
+
+    if (sets.length === 0) {
+      req.flash('error', '没有需要更新的内容');
+      return res.redirect(`/courses/${id}/edit`);
+    }
+
+    values.push(id);
+    db.prepare(`UPDATE courses SET ${sets.join(', ')} WHERE id = ?`).run(...values);
+
+    req.flash('success', '课程更新成功');
+    res.redirect(`/courses/${id}`);
+  } catch (err) {
+    console.error('更新课程错误:', err);
+    req.flash('error', '更新失败');
+    res.redirect(`/courses/${req.params.id}/edit`);
+  }
+};
+
+// 删除课程
+exports.delete = (req, res) => {
+  try {
+    if (!canManageCourse(req.session.user, req.params.id)) {
+      req.flash('error', '无权管理该课程');
+      return res.redirect('/courses');
+    }
+    db.prepare('DELETE FROM courses WHERE id = ?').run(req.params.id);
+    req.flash('success', '课程已删除');
+    res.redirect('/courses');
+  } catch (err) {
+    console.error('删除课程错误:', err);
+    req.flash('error', '删除失败');
+    res.redirect('/courses');
+  }
+};
+
+// 添加课时
+exports.addLesson = (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!canManageCourse(req.session.user, id)) {
+      req.flash('error', '无权管理该课程');
+      return res.redirect('/courses');
+    }
+    const { title, description, duration } = req.body;
+
+    if (!title) {
+      req.flash('error', '课时名称不能为空');
+      return res.redirect(`/courses/${id}`);
+    }
+
+    const maxOrder = db.prepare('SELECT MAX(sort_order) as max_order FROM lessons WHERE course_id = ?').get(id);
+    const sortOrder = (maxOrder.max_order || 0) + 1;
+
+    db.prepare(
+      'INSERT INTO lessons (course_id, title, description, duration, sort_order) VALUES (?, ?, ?, ?, ?)'
+    ).run(id, title, description || null, duration || null, sortOrder);
+
+    req.flash('success', '课时添加成功');
+    res.redirect(`/courses/${id}`);
+  } catch (err) {
+    console.error('添加课时错误:', err);
+    req.flash('error', '添加失败');
+    res.redirect(`/courses/${req.params.id}`);
+  }
+};
+
+// 上传资源
+exports.uploadResource = (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!canManageCourse(req.session.user, id)) {
+      if (req.file) {
+        try { fs.unlinkSync(req.file.path); } catch (e) { /* 文件可能已删除 */ }
+      }
+      req.flash('error', '无权管理该课程');
+      return res.redirect('/courses');
+    }
+    if (!req.file) {
+      req.flash('error', '请选择要上传的文件');
+      return res.redirect(`/courses/${id}`);
+    }
+
+    const { resource_type, title } = req.body;
+    db.prepare(
+      'INSERT INTO resources (course_id, resource_type, title, file_path, file_size, upload_by) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(id, resource_type || 'other', title || req.file.originalname,
+         req.file.path, req.file.size, req.session.user.id);
+
+    req.flash('success', '资源上传成功');
+    res.redirect(`/courses/${id}`);
+  } catch (err) {
+    console.error('上传资源错误:', err);
+    req.flash('error', '上传失败');
+    res.redirect(`/courses/${req.params.id}`);
+  }
+};
+
+// 添加任务
+exports.addTask = (req, res) => {
+  try {
+    const { lesson_id } = req.params;
+    const { title, description, task_type, require_upload } = req.body;
+
+    if (!title) {
+      req.flash('error', '任务名称不能为空');
+      return res.redirect('back');
+    }
+
+    const lesson = db.prepare('SELECT course_id FROM lessons WHERE id = ?').get(lesson_id);
+    if (!lesson) {
+      req.flash('error', '课时不存在');
+      return res.redirect('back');
+    }
+    if (!canManageCourse(req.session.user, lesson.course_id)) {
+      req.flash('error', '无权管理该课程');
+      return res.redirect('back');
+    }
+
+    const maxOrder = db.prepare('SELECT MAX(sort_order) as max_order FROM tasks WHERE lesson_id = ?').get(lesson_id);
+
+    db.prepare(
+      `INSERT INTO tasks (lesson_id, title, description, task_type, require_upload, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(lesson_id, title, description || null, task_type || 'inquiry',
+          require_upload === 'on' ? 1 : 0, (maxOrder.max_order || 0) + 1);
+
+    req.flash('success', '任务添加成功');
+    res.redirect(`/courses/${lesson.course_id}`);
+  } catch (err) {
+    console.error('添加任务错误:', err);
+    req.flash('error', '添加失败');
+    res.redirect('back');
+  }
+};
+
+// 学生报名课程
+exports.enroll = (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!canManageCourse(req.session.user, id)) {
+      req.flash('error', '无权管理该课程');
+      return res.redirect('/courses');
+    }
+    const { student_ids } = req.body;
+
+    if (!student_ids || student_ids.length === 0) {
+      req.flash('error', '请选择学生');
+      return res.redirect(`/courses/${id}`);
+    }
+
+    const course = db.prepare('SELECT id FROM courses WHERE id = ?').get(id);
+    if (!course) {
+      req.flash('error', '课程不存在');
+      return res.redirect('/courses');
+    }
+
+    const ids = Array.isArray(student_ids) ? student_ids : [student_ids];
+    let added = 0;
+    const stmt = db.prepare('INSERT OR IGNORE INTO enrollments (student_id, course_id) VALUES (?, ?)');
+    for (const sid of ids) {
+      const student = db.prepare(
+        "SELECT id FROM users WHERE id = ? AND role = 'student'"
+      ).get(sid);
+      if (!student) continue;
+      const result = stmt.run(sid, id);
+      if (result.changes > 0) added++;
+    }
+
+    req.flash('success', `已添加 ${added} 名学生到课程`);
+    res.redirect(`/courses/${id}`);
+  } catch (err) {
+    console.error('报名错误:', err);
+    req.flash('error', '操作失败');
+    res.redirect(`/courses/${req.params.id}`);
+  }
+};
+
+// 学生自主选课 API（限3门，返回JSON）
+exports.studentEnroll = (req, res) => {
+  try {
+    const studentId = req.session.user.id;
+    const { course_id } = req.body;
+
+    if (!course_id) {
+      return res.json({ success: false, message: '请选择课程' });
+    }
+
+    const enroll = db.transaction((studentId, courseId) => {
+      const myCount = db.prepare(
+        'SELECT COUNT(*) as count FROM enrollments WHERE student_id = ?'
+      ).get(studentId);
+
+      if (myCount.count >= 3) {
+        return { success: false, message: '最多选择3门课程，请先退选其他课程' };
+      }
+
+      const course = db.prepare(
+        "SELECT id, title FROM courses WHERE id = ? AND status = 'published'"
+      ).get(courseId);
+
+      if (!course) {
+        return { success: false, message: '课程不存在或未发布' };
+      }
+
+      const result = db.prepare(
+        'INSERT OR IGNORE INTO enrollments (student_id, course_id) VALUES (?, ?)'
+      ).run(studentId, courseId);
+
+      if (result.changes === 0) {
+        return { success: false, message: '已经选择过该课程' };
+      }
+
+      return { success: true, message: '成功选择课程《' + course.title + '》' };
+    });
+
+    res.json(enroll(studentId, course_id));
+  } catch (err) {
+    console.error('学生选课错误:', err);
+    res.json({ success: false, message: '选课失败，请稍后重试' });
+  }
+};
