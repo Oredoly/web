@@ -64,6 +64,7 @@ a:hover { text-decoration: underline; }
 }
 
 .brand-icon { font-size: 28px; }
+.brand-icon img { width: 36px; height: 36px; object-fit: contain; display: block; }
 .brand-name { font-size: 15px; font-weight: 600; display: block; }
 .brand-subtitle { font-size: 11px; color: rgba(255,255,255,0.5); }
 
