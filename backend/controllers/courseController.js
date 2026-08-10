@@ -67,7 +67,7 @@ exports.create = (req, res) => {
          story_line || null, grade_level, difficulty, total_hours || null,
          materials_needed || null, req.user.id);
 
-    res.json({ message: '课程创建成功！现在可以添加课时和上传资源' });
+    res.json({ message: '课程创建成功！现在可以添加课时和上传资源', id: result.lastInsertRowid });
   } catch (err) {
     console.error('创建课程错误:', err);
     res.json({ title: '创建课程', course: req.body, errors: ['创建失败，请稍后重试'] });

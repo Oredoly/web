@@ -134,7 +134,7 @@ exports.index = (req, res) => {
       viewData.todayReflectionCount = todayReflection.count;
     }
 
-    res.json({});
+    res.json(viewData);
   } catch (err) {
     console.error('仪表盘错误:', err);
     res.json({ title: '工作台', fortune, today, user, error: '加载数据失败' });

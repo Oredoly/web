@@ -59,10 +59,6 @@ exports.list = (req, res) => {
 // 上传作品页面
 exports.showUpload = (req, res) => {
   try {
-    if (req.user.role === 'admin') {
-      return res.status(400).json({ error: '管理员不可上传作品' });
-    }
-
     const userId = req.user.id;
     let enrollments = [];
 

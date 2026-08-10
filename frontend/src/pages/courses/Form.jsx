@@ -51,14 +51,12 @@ export default function CourseForm() {
           <Form.Item name="story_line" label="故事线"><Input.TextArea rows={2} /></Form.Item>
           <Form.Item name="grade_level" label="适用学段" rules={[{ required: true }]}>
             <Select options={[
-              { label: '小学低年级', value: '小学低年级' }, { label: '小学高年级', value: '小学高年级' },
-              { label: '初中', value: '初中' }, { label: '高中', value: '高中' },
+              { label: '小学', value: 'primary' }, { label: '初中', value: 'junior' }, { label: '高中', value: 'senior' },
             ]} />
           </Form.Item>
           <Form.Item name="difficulty" label="难度等级" rules={[{ required: true }]}>
             <Select options={[
-              { label: '入门', value: '入门' }, { label: '基础', value: '基础' },
-              { label: '进阶', value: '进阶' }, { label: '挑战', value: '挑战' },
+              { label: '基础', value: 'basic' }, { label: '进阶', value: 'advanced' }, { label: '挑战', value: 'challenge' },
             ]} />
           </Form.Item>
           <Form.Item name="total_hours" label="总课时"><Input type="number" placeholder="小时" /></Form.Item>

@@ -495,11 +495,11 @@ exports.detail = (req, res) => {
        FROM users u
        LEFT JOIN schools s ON u.school_id = s.id
        LEFT JOIN classes c ON u.class_id = c.id
-       WHERE u.id = ? AND u.role = 'student'`
+       WHERE u.id = ?`
     ).get(id);
 
     if (!student) {
-      return res.status(400).json({ error: '学生不存在' });
+      return res.status(404).json({ error: '用户不存在' });
     }
 
     if (isTeacher(user.role) && student.school_id !== user.school_id) {
