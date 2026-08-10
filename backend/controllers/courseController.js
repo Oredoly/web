@@ -20,7 +20,7 @@ exports.list = (req, res) => {
     `;
     const params = [];
 
-    if (!COURSE_MANAGER_ROLES.includes(req.session.user.role)) {
+    if (!COURSE_MANAGER_ROLES.includes(req.user.role)) {
       sql += " AND c.status = 'published'";
     }
 
@@ -34,17 +34,16 @@ exports.list = (req, res) => {
     const courses = db.prepare(sql).all(...params);
     const themes = db.prepare('SELECT DISTINCT theme FROM courses WHERE theme IS NOT NULL').all();
 
-    res.render('courses/list', { title: '课程管理', courses, themes, filters: req.query });
+    res.json({ title: '课程管理', courses, themes, filters: req.query });
   } catch (err) {
     console.error('课程列表错误:', err);
-    req.flash('error', '加载课程列表失败');
-    res.redirect('/dashboard');
+    res.status(500).json({ error:  });
   }
 };
 
 // 创建课程页面
 exports.showCreate = (req, res) => {
-  res.render('courses/create', { title: '创建课程', course: {}, errors: [] });
+  res.json({ title: '创建课程', course: {}, errors: [] });
 };
 
 // 创建课程
@@ -54,7 +53,7 @@ exports.create = (req, res) => {
             grade_level, difficulty, total_hours, materials_needed } = req.body;
 
     if (!title || !grade_level || !difficulty) {
-      return res.render('courses/create', {
+      return res.json({
         title: '创建课程', course: req.body,
         errors: ['课程名称、适用学段和难度等级为必填项']
       });
@@ -66,13 +65,12 @@ exports.create = (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(title, theme || null, description || null, driving_question || null,
          story_line || null, grade_level, difficulty, total_hours || null,
-         materials_needed || null, req.session.user.id);
+         materials_needed || null, req.user.id);
 
-    req.flash('success', '课程创建成功！现在可以添加课时和上传资源');
-    res.redirect(`/courses/${result.lastInsertRowid}`);
+    res.json({ message: '课程创建成功！现在可以添加课时和上传资源' });
   } catch (err) {
     console.error('创建课程错误:', err);
-    res.render('courses/create', { title: '创建课程', course: req.body, errors: ['创建失败，请稍后重试'] });
+    res.json({ title: '创建课程', course: req.body, errors: ['创建失败，请稍后重试'] });
   }
 };
 
@@ -88,13 +86,11 @@ exports.detail = (req, res) => {
     ).get(id);
 
     if (!course) {
-      req.flash('error', '课程不存在');
-      return res.redirect('/courses');
+      return res.status(400).json({ error: '课程不存在' });
     }
 
-    if (!COURSE_MANAGER_ROLES.includes(req.session.user.role) && course.status !== 'published') {
-      req.flash('error', '课程不存在');
-      return res.redirect('/courses');
+    if (!COURSE_MANAGER_ROLES.includes(req.user.role) && course.status !== 'published') {
+      return res.status(400).json({ error: '课程不存在' });
     }
 
     const lessons = db.prepare('SELECT * FROM lessons WHERE course_id = ? ORDER BY sort_order').all(id);
@@ -109,11 +105,10 @@ exports.detail = (req, res) => {
        ORDER BY e.enrolled_at DESC`
     ).all(id);
 
-    res.render('courses/detail', { title: course.title, course, lessons, resources, enrollments });
+    res.json({ title: course.title, course, lessons, resources, enrollments });
   } catch (err) {
     console.error('课程详情错误:', err);
-    req.flash('error', '加载课程详情失败');
-    res.redirect('/courses');
+    res.status(500).json({ error:  });
   }
 };
 
@@ -122,18 +117,15 @@ exports.showEdit = (req, res) => {
   try {
     const course = db.prepare('SELECT * FROM courses WHERE id = ?').get(req.params.id);
     if (!course) {
-      req.flash('error', '课程不存在');
-      return res.redirect('/courses');
+      return res.status(400).json({ error: '课程不存在' });
     }
-    if (!canManageCourse(req.session.user, course.id)) {
-      req.flash('error', '无权管理该课程');
-      return res.redirect('/courses');
+    if (!canManageCourse(req.user, course.id)) {
+      return res.status(400).json({ error: '无权管理该课程' });
     }
-    res.render('courses/edit', { title: '编辑课程', course, errors: [] });
+    res.json({ title: '编辑课程', course, errors: [] });
   } catch (err) {
     console.error('加载编辑页错误:', err);
-    req.flash('error', '加载失败');
-    res.redirect('/courses');
+    res.status(500).json({ error:  });
   }
 };
 
@@ -141,9 +133,8 @@ exports.showEdit = (req, res) => {
 exports.update = (req, res) => {
   try {
     const { id } = req.params;
-    if (!canManageCourse(req.session.user, id)) {
-      req.flash('error', '无权管理该课程');
-      return res.redirect('/courses');
+    if (!canManageCourse(req.user, id)) {
+      return res.status(400).json({ error: '无权管理该课程' });
     }
     const fields = ['title','theme','description','driving_question','story_line',
                     'grade_level','difficulty','total_hours','materials_needed','status'];
@@ -158,36 +149,30 @@ exports.update = (req, res) => {
     });
 
     if (sets.length === 0) {
-      req.flash('error', '没有需要更新的内容');
-      return res.redirect(`/courses/${id}/edit`);
+      return res.status(400).json({ error: '没有需要更新的内容' });
     }
 
     values.push(id);
     db.prepare(`UPDATE courses SET ${sets.join(', ')} WHERE id = ?`).run(...values);
 
-    req.flash('success', '课程更新成功');
-    res.redirect(`/courses/${id}`);
+    res.json({ message: '课程更新成功' });
   } catch (err) {
     console.error('更新课程错误:', err);
-    req.flash('error', '更新失败');
-    res.redirect(`/courses/${req.params.id}/edit`);
+    res.status(500).json({ error:  });
   }
 };
 
 // 删除课程
 exports.delete = (req, res) => {
   try {
-    if (!canManageCourse(req.session.user, req.params.id)) {
-      req.flash('error', '无权管理该课程');
-      return res.redirect('/courses');
+    if (!canManageCourse(req.user, req.params.id)) {
+      return res.status(400).json({ error: '无权管理该课程' });
     }
     db.prepare('DELETE FROM courses WHERE id = ?').run(req.params.id);
-    req.flash('success', '课程已删除');
-    res.redirect('/courses');
+    res.json({ message: '课程已删除' });
   } catch (err) {
     console.error('删除课程错误:', err);
-    req.flash('error', '删除失败');
-    res.redirect('/courses');
+    res.status(500).json({ error:  });
   }
 };
 
@@ -195,15 +180,13 @@ exports.delete = (req, res) => {
 exports.addLesson = (req, res) => {
   try {
     const { id } = req.params;
-    if (!canManageCourse(req.session.user, id)) {
-      req.flash('error', '无权管理该课程');
-      return res.redirect('/courses');
+    if (!canManageCourse(req.user, id)) {
+      return res.status(400).json({ error: '无权管理该课程' });
     }
     const { title, description, duration } = req.body;
 
     if (!title) {
-      req.flash('error', '课时名称不能为空');
-      return res.redirect(`/courses/${id}`);
+      return res.status(400).json({ error: '课时名称不能为空' });
     }
 
     const maxOrder = db.prepare('SELECT MAX(sort_order) as max_order FROM lessons WHERE course_id = ?').get(id);
@@ -213,12 +196,10 @@ exports.addLesson = (req, res) => {
       'INSERT INTO lessons (course_id, title, description, duration, sort_order) VALUES (?, ?, ?, ?, ?)'
     ).run(id, title, description || null, duration || null, sortOrder);
 
-    req.flash('success', '课时添加成功');
-    res.redirect(`/courses/${id}`);
+    res.json({ message: '课时添加成功' });
   } catch (err) {
     console.error('添加课时错误:', err);
-    req.flash('error', '添加失败');
-    res.redirect(`/courses/${req.params.id}`);
+    res.status(500).json({ error:  });
   }
 };
 
@@ -226,30 +207,26 @@ exports.addLesson = (req, res) => {
 exports.uploadResource = (req, res) => {
   try {
     const { id } = req.params;
-    if (!canManageCourse(req.session.user, id)) {
+    if (!canManageCourse(req.user, id)) {
       if (req.file) {
         try { fs.unlinkSync(req.file.path); } catch (e) { /* 文件可能已删除 */ }
       }
-      req.flash('error', '无权管理该课程');
-      return res.redirect('/courses');
+      return res.status(400).json({ error: '无权管理该课程' });
     }
     if (!req.file) {
-      req.flash('error', '请选择要上传的文件');
-      return res.redirect(`/courses/${id}`);
+      return res.status(400).json({ error: '请选择要上传的文件' });
     }
 
     const { resource_type, title } = req.body;
     db.prepare(
       'INSERT INTO resources (course_id, resource_type, title, file_path, file_size, upload_by) VALUES (?, ?, ?, ?, ?, ?)'
     ).run(id, resource_type || 'other', title || req.file.originalname,
-         req.file.path, req.file.size, req.session.user.id);
+         req.file.path, req.file.size, req.user.id);
 
-    req.flash('success', '资源上传成功');
-    res.redirect(`/courses/${id}`);
+    res.json({ message: '资源上传成功' });
   } catch (err) {
     console.error('上传资源错误:', err);
-    req.flash('error', '上传失败');
-    res.redirect(`/courses/${req.params.id}`);
+    res.status(500).json({ error:  });
   }
 };
 
@@ -260,18 +237,15 @@ exports.addTask = (req, res) => {
     const { title, description, task_type, require_upload } = req.body;
 
     if (!title) {
-      req.flash('error', '任务名称不能为空');
-      return res.redirect('back');
+      return res.status(400).json({ error: '任务名称不能为空' });
     }
 
     const lesson = db.prepare('SELECT course_id FROM lessons WHERE id = ?').get(lesson_id);
     if (!lesson) {
-      req.flash('error', '课时不存在');
-      return res.redirect('back');
+      return res.status(400).json({ error: '课时不存在' });
     }
-    if (!canManageCourse(req.session.user, lesson.course_id)) {
-      req.flash('error', '无权管理该课程');
-      return res.redirect('back');
+    if (!canManageCourse(req.user, lesson.course_id)) {
+      return res.status(400).json({ error: '无权管理该课程' });
     }
 
     const maxOrder = db.prepare('SELECT MAX(sort_order) as max_order FROM tasks WHERE lesson_id = ?').get(lesson_id);
@@ -282,12 +256,10 @@ exports.addTask = (req, res) => {
     ).run(lesson_id, title, description || null, task_type || 'inquiry',
           require_upload === 'on' ? 1 : 0, (maxOrder.max_order || 0) + 1);
 
-    req.flash('success', '任务添加成功');
-    res.redirect(`/courses/${lesson.course_id}`);
+    res.json({ message: '任务添加成功' });
   } catch (err) {
     console.error('添加任务错误:', err);
-    req.flash('error', '添加失败');
-    res.redirect('back');
+    res.status(500).json({ error:  });
   }
 };
 
@@ -295,21 +267,18 @@ exports.addTask = (req, res) => {
 exports.enroll = (req, res) => {
   try {
     const { id } = req.params;
-    if (!canManageCourse(req.session.user, id)) {
-      req.flash('error', '无权管理该课程');
-      return res.redirect('/courses');
+    if (!canManageCourse(req.user, id)) {
+      return res.status(400).json({ error: '无权管理该课程' });
     }
     const { student_ids } = req.body;
 
     if (!student_ids || student_ids.length === 0) {
-      req.flash('error', '请选择学生');
-      return res.redirect(`/courses/${id}`);
+      return res.status(400).json({ error: '请选择学生' });
     }
 
     const course = db.prepare('SELECT id FROM courses WHERE id = ?').get(id);
     if (!course) {
-      req.flash('error', '课程不存在');
-      return res.redirect('/courses');
+      return res.status(400).json({ error: '课程不存在' });
     }
 
     const ids = Array.isArray(student_ids) ? student_ids : [student_ids];
@@ -324,19 +293,17 @@ exports.enroll = (req, res) => {
       if (result.changes > 0) added++;
     }
 
-    req.flash('success', `已添加 ${added} 名学生到课程`);
-    res.redirect(`/courses/${id}`);
+    res.json({ message: `已添加 ${added} 名学生到课程` });
   } catch (err) {
     console.error('报名错误:', err);
-    req.flash('error', '操作失败');
-    res.redirect(`/courses/${req.params.id}`);
+    res.status(500).json({ error:  });
   }
 };
 
 // 学生自主选课 API（限3门，返回JSON）
 exports.studentEnroll = (req, res) => {
   try {
-    const studentId = req.session.user.id;
+    const studentId = req.user.id;
     const { course_id } = req.body;
 
     if (!course_id) {

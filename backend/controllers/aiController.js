@@ -1,10 +1,10 @@
 const db = require('../config/database');
 const { COURSE_MANAGER_ROLES } = require('../middleware/auth');
 
-// AI 助教聊天页面
-exports.showChat = (req, res) => {
+// 获取 AI 助教可用的课程列表
+exports.getCourses = (req, res) => {
   try {
-    const user = req.session.user;
+    const user = req.user;
     let courses = [];
 
     if (user.role === 'student') {
@@ -20,10 +20,10 @@ exports.showChat = (req, res) => {
       `).all(user.id);
     }
 
-    res.render('dashboard/ai', { title: 'AI 学习助手', courses });
+    res.json({ title: 'AI 学习助手', courses });
   } catch (err) {
     console.error('AI助手页错误:', err);
-    res.render('dashboard/ai', { title: 'AI 学习助手', courses: [] });
+    res.json({ title: 'AI 学习助手', courses: [] });
   }
 };
 
@@ -39,7 +39,7 @@ exports.ask = (req, res) => {
     // 获取课程上下文
     let courseContext = '';
     if (course_id) {
-      const user = req.session.user;
+      const user = req.user;
       let course = null;
 
       if (user.role === 'student') {

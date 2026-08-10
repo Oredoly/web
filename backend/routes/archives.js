@@ -5,10 +5,10 @@ const { requireAuth, requireReflectionSubmittable, requireRole } = require('../m
 
 router.use(requireAuth);
 
-router.get('/', controller.showExport);
-router.get('/generate-batch', controller.generateBatch);
+router.get('/tree', controller.getTree);
 router.get('/generate', controller.generate);
-router.get('/reflection', requireReflectionSubmittable, controller.showReflection);
+router.get('/generate-batch', controller.generateBatch);
+router.get('/reflection', requireReflectionSubmittable, controller.getReflections);
 router.post('/reflection', requireReflectionSubmittable, controller.submitReflection);
 router.post('/evaluation', requireRole('admin', 'executive_mentor', 'academic_mentor', 'teacher'), controller.submitEvaluation);
 

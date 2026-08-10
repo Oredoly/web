@@ -3,26 +3,33 @@ const router = express.Router();
 const controller = require('../controllers/studentController');
 const { requireAuth, requireRole } = require('../middleware/auth');
 
+// 公开接口（获取班级列表，注册用）
 router.get('/classes/:schoolId', controller.getClasses);
+
 router.use(requireAuth);
 
+// 用户列表
 router.get('/', requireRole('admin', 'executive_mentor', 'academic_mentor', 'teacher'), controller.list);
-router.get('/create', requireRole('admin', 'executive_mentor', 'teacher'), controller.showCreate);
-router.post('/create', requireRole('admin', 'executive_mentor', 'teacher'), controller.create);
-router.get('/import', requireRole('admin', 'executive_mentor'), controller.showImport);
-router.post('/import', requireRole('admin', 'executive_mentor'), controller.import);
-router.post('/schools', requireRole('admin'), controller.createSchool);
-router.post('/schools/:id/delete', requireRole('admin'), controller.deleteSchool);
-router.post('/classes', requireRole('admin'), controller.createClass);
-router.post('/classes/:id/delete', requireRole('admin'), controller.deleteClass);
-router.post('/users', requireRole('admin'), controller.createUser);
-router.get('/users/:id/edit', requireRole('admin'), controller.getUserForEdit);
-router.post('/users/:id/edit', requireRole('admin'), controller.updateUser);
-router.post('/users/batch-delete', requireRole('admin'), controller.batchDeleteUsers);
-router.post('/users/:id/delete', requireRole('admin'), controller.deleteUser);
-router.get('/:id/edit', requireRole('admin', 'executive_mentor', 'academic_mentor', 'teacher'), controller.showEditStudent);
-router.post('/:id/edit', requireRole('admin', 'executive_mentor', 'academic_mentor', 'teacher'), controller.updateStudent);
-router.post('/:id/delete', requireRole('admin', 'executive_mentor', 'academic_mentor', 'teacher'), controller.deleteStudent);
+
+// 学生 CRUD
+router.post('/', requireRole('admin', 'executive_mentor', 'teacher'), controller.create);
 router.get('/:id', controller.detail);
+router.put('/:id', requireRole('admin', 'executive_mentor', 'academic_mentor', 'teacher'), controller.updateStudent);
+router.delete('/:id', requireRole('admin', 'executive_mentor', 'academic_mentor', 'teacher'), controller.deleteStudent);
+
+// 批量导入
+router.post('/import', requireRole('admin', 'executive_mentor'), controller.import);
+
+// 学校和班级管理（管理员）
+router.post('/schools', requireRole('admin'), controller.createSchool);
+router.delete('/schools/:id', requireRole('admin'), controller.deleteSchool);
+router.post('/classes', requireRole('admin'), controller.createClass);
+router.delete('/classes/:id', requireRole('admin'), controller.deleteClass);
+
+// 用户管理（管理员）
+router.post('/users', requireRole('admin'), controller.createUser);
+router.put('/users/:id', requireRole('admin'), controller.updateUser);
+router.delete('/users/:id', requireRole('admin'), controller.deleteUser);
+router.post('/users/batch-delete', requireRole('admin'), controller.batchDeleteUsers);
 
 module.exports = router;

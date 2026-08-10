@@ -24,10 +24,10 @@ function deleteUserWithWorks(userId) {
 // 学生列表
 exports.list = (req, res) => {
   try {
-    if (req.session.user.role === 'admin') {
+    if (req.user.role === 'admin') {
       const tree = buildUserTree({ search: req.query.search || '', includeExecutive: true });
       const schools = db.prepare('SELECT id, name FROM schools ORDER BY name').all();
-      return res.render('students/tree', { title: '用户管理', tree, schools, filters: req.query });
+      return res.json({ title: '用户管理', tree, schools, filters: req.query });
     }
 
     let sql = `
@@ -40,9 +40,9 @@ exports.list = (req, res) => {
     `;
     const params = [];
 
-    if (isTeacher(req.session.user.role)) {
+    if (isTeacher(req.user.role)) {
       sql += ' AND u.school_id = ?';
-      params.push(req.session.user.school_id || 0);
+      params.push(req.user.school_id || 0);
     }
 
     if (req.query.school_id) { sql += ' AND u.school_id = ?'; params.push(req.query.school_id); }
@@ -55,24 +55,23 @@ exports.list = (req, res) => {
     sql += ' ORDER BY u.created_at DESC';
 
     const students = db.prepare(sql).all(...params);
-    const schools = isTeacher(req.session.user.role)
-      ? db.prepare('SELECT id, name FROM schools WHERE id = ? ORDER BY name').all(req.session.user.school_id || 0)
+    const schools = isTeacher(req.user.role)
+      ? db.prepare('SELECT id, name FROM schools WHERE id = ? ORDER BY name').all(req.user.school_id || 0)
       : db.prepare('SELECT id, name FROM schools ORDER BY name').all();
 
-    res.render('students/list', { title: '学生管理', students, schools, filters: req.query });
+    res.json({ title: '学生管理', students, schools, filters: req.query });
   } catch (err) {
     console.error('学生列表错误:', err);
-    req.flash('error', '加载学生列表失败');
-    res.redirect('/dashboard');
+    res.status(500).json({ error:  });
   }
 };
 
 // 添加学生页面
 exports.showCreate = (req, res) => {
-  const schools = isTeacher(req.session.user.role)
-    ? db.prepare('SELECT id, name FROM schools WHERE id = ? ORDER BY name').all(req.session.user.school_id || 0)
+  const schools = isTeacher(req.user.role)
+    ? db.prepare('SELECT id, name FROM schools WHERE id = ? ORDER BY name').all(req.user.school_id || 0)
     : db.prepare('SELECT id, name FROM schools ORDER BY name').all();
-  res.render('students/create', { title: '添加学生', schools, errors: [] });
+  res.json({ title: '添加学生', schools, errors: [] });
 };
 
 // 添加学生
@@ -82,31 +81,31 @@ exports.create = (req, res) => {
 
     if (!real_name) {
       const schools = db.prepare('SELECT id, name FROM schools ORDER BY name').all();
-      return res.render('students/create', { title: '添加学生', schools, errors: ['姓名为必填项'] });
+      return res.json({ title: '添加学生', schools, errors: ['姓名为必填项'] });
     }
 
-    if (isTeacher(req.session.user.role)) {
-      const ownSchool = req.session.user.school_id;
+    if (isTeacher(req.user.role)) {
+      const ownSchool = req.user.school_id;
       if (!ownSchool || Number(school_id) !== ownSchool) {
         const schools = db.prepare('SELECT id, name FROM schools ORDER BY name').all();
-        return res.render('students/create', { title: '添加学生', schools, errors: ['教师只能在本校添加学生'] });
+        return res.json({ title: '添加学生', schools, errors: ['教师只能在本校添加学生'] });
       }
       const cls = db.prepare('SELECT id FROM classes WHERE id = ? AND school_id = ?').get(class_id, ownSchool);
       if (!cls) {
         const schools = db.prepare('SELECT id, name FROM schools ORDER BY name').all();
-        return res.render('students/create', { title: '添加学生', schools, errors: ['班级必须属于当前学校'] });
+        return res.json({ title: '添加学生', schools, errors: ['班级必须属于当前学校'] });
       }
     }
 
     if (!school_id || !class_id) {
       const schools = db.prepare('SELECT id, name FROM schools ORDER BY name').all();
-      return res.render('students/create', { title: '添加学生', schools, errors: ['学校和班级为必填项'] });
+      return res.json({ title: '添加学生', schools, errors: ['学校和班级为必填项'] });
     }
 
     const nameExists = db.prepare('SELECT id FROM users WHERE real_name = ?').get(real_name);
     if (nameExists) {
       const schools = db.prepare('SELECT id, name FROM schools ORDER BY name').all();
-      return res.render('students/create', { title: '添加学生', schools, errors: ['该姓名已存在'] });
+      return res.json({ title: '添加学生', schools, errors: ['该姓名已存在'] });
     }
 
     const studentUsername = `student${Date.now()}${Math.floor(Math.random() * 100000)}`;
@@ -119,18 +118,17 @@ exports.create = (req, res) => {
     ).run(studentUsername, password_hash, real_name, email || null, phone || null,
           school_id || null, class_id || null);
 
-    req.flash('success', `学生 ${real_name} 添加成功！默认密码: ${studentPassword}`);
-    res.redirect('/students');
+    res.json({ message: `学生 ${real_name} 添加成功！默认密码: ${studentPassword}` });
   } catch (err) {
     console.error('添加学生错误:', err);
     const schools = db.prepare('SELECT id, name FROM schools ORDER BY name').all();
-    res.render('students/create', { title: '添加学生', schools, errors: ['添加失败，请稍后重试'] });
+    res.json({ title: '添加学生', schools, errors: ['添加失败，请稍后重试'] });
   }
 };
 
 // 批量导入页面
 exports.showImport = (req, res) => {
-  res.render('students/import', { title: '批量导入用户' });
+  res.json({ title: '批量导入用户' });
 };
 
 // 批量导入
@@ -161,12 +159,10 @@ exports.import = (req, res) => {
       } catch (e) { /* 跳过重复 */ }
     }
 
-    req.flash('success', `成功导入 ${imported} 名用户`);
-    res.redirect('/students');
+    res.json({ message: `成功导入 ${imported} 名用户` });
   } catch (err) {
     console.error('批量导入错误:', err);
-    req.flash('error', '导入失败，请检查数据格式');
-    res.redirect('/students/import');
+    res.status(500).json({ error:  });
   }
 };
 
@@ -174,20 +170,17 @@ exports.createSchool = (req, res) => {
   try {
     const { name, description, tags, region, contact_person, contact_phone } = req.body;
     if (!name || !name.trim()) {
-      req.flash('error', '学校名称不能为空');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '学校名称不能为空' });
     }
     db.prepare(
       `INSERT INTO schools (name, description, tags, region, contact_person, contact_phone)
        VALUES (?, ?, ?, ?, ?, ?)`
     ).run(name.trim(), description || null, tags || null, region || null,
           contact_person || null, contact_phone || null);
-    req.flash('success', '学校添加成功');
-    res.redirect('/students');
+    res.json({ message: '学校添加成功' });
   } catch (err) {
     console.error('添加学校错误:', err);
-    req.flash('error', '添加学校失败');
-    res.redirect('/students');
+    res.status(500).json({ error:  });
   }
 };
 
@@ -195,16 +188,13 @@ exports.deleteSchool = (req, res) => {
   try {
     const school = db.prepare('SELECT id FROM schools WHERE id = ?').get(req.params.id);
     if (!school) {
-      req.flash('error', '学校不存在');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '学校不存在' });
     }
     db.prepare('DELETE FROM schools WHERE id = ?').run(req.params.id);
-    req.flash('success', '学校已删除，关联班级已删除');
-    res.redirect('/students');
+    res.json({ message: '学校已删除，关联班级已删除' });
   } catch (err) {
     console.error('删除学校错误:', err);
-    req.flash('error', '删除学校失败');
-    res.redirect('/students');
+    res.status(500).json({ error:  });
   }
 };
 
@@ -212,22 +202,18 @@ exports.createClass = (req, res) => {
   try {
     const { name, school_id, grade } = req.body;
     if (!name || !name.trim() || !school_id) {
-      req.flash('error', '班级名称和所属学校不能为空');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '班级名称和所属学校不能为空' });
     }
     const school = db.prepare('SELECT id FROM schools WHERE id = ?').get(school_id);
     if (!school) {
-      req.flash('error', '所属学校不存在');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '所属学校不存在' });
     }
     db.prepare('INSERT INTO classes (name, school_id, grade) VALUES (?, ?, ?)')
       .run(name.trim(), school_id, grade || null);
-    req.flash('success', '班级添加成功');
-    res.redirect('/students');
+    res.json({ message: '班级添加成功' });
   } catch (err) {
     console.error('添加班级错误:', err);
-    req.flash('error', '添加班级失败');
-    res.redirect('/students');
+    res.status(500).json({ error:  });
   }
 };
 
@@ -235,16 +221,13 @@ exports.deleteClass = (req, res) => {
   try {
     const cls = db.prepare('SELECT id FROM classes WHERE id = ?').get(req.params.id);
     if (!cls) {
-      req.flash('error', '班级不存在');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '班级不存在' });
     }
     db.prepare('DELETE FROM classes WHERE id = ?').run(req.params.id);
-    req.flash('success', '班级已删除');
-    res.redirect('/students');
+    res.json({ message: '班级已删除' });
   } catch (err) {
     console.error('删除班级错误:', err);
-    req.flash('error', '删除班级失败');
-    res.redirect('/students');
+    res.status(500).json({ error:  });
   }
 };
 
@@ -253,31 +236,26 @@ exports.createUser = (req, res) => {
     const { password, real_name, role, school_id, class_id, email, phone, profile } = req.body;
 
     if (!real_name || !MANAGED_ROLES.includes(role)) {
-      req.flash('error', '姓名和身份不能为空');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '姓名和身份不能为空' });
     }
 
     if (['student', 'teacher'].includes(role) && (!school_id || !class_id)) {
-      req.flash('error', '学生和教师必须选择学校和班级');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '学生和教师必须选择学校和班级' });
     }
 
     const nameExists = db.prepare('SELECT id FROM users WHERE real_name = ?').get(real_name);
     if (nameExists) {
-      req.flash('error', '该姓名已存在');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '该姓名已存在' });
     }
 
     if (password && password.length < 6) {
-      req.flash('error', '密码至少6位');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '密码至少6位' });
     }
 
     if (class_id) {
       const cls = db.prepare('SELECT id, school_id FROM classes WHERE id = ?').get(class_id);
       if (!cls || (school_id && cls.school_id !== Number(school_id))) {
-        req.flash('error', '班级不存在或不属于所选学校');
-        return res.redirect('/students');
+        return res.status(400).json({ error: '班级不存在或不属于所选学校' });
       }
     }
 
@@ -294,12 +272,10 @@ exports.createUser = (req, res) => {
     ).run(finalUsername, password_hash, real_name, email || null, phone || null,
           profile || null, role, finalSchoolId || null, finalClassId || null);
 
-    req.flash('success', `用户 ${real_name} 添加成功`);
-    res.redirect('/students');
+    res.json({ message: `用户 ${real_name} 添加成功` });
   } catch (err) {
     console.error('添加用户错误:', err);
-    req.flash('error', '添加用户失败');
-    res.redirect('/students');
+    res.status(500).json({ error:  });
   }
 };
 
@@ -324,32 +300,27 @@ exports.updateUser = (req, res) => {
     const userId = req.params.id;
 
     if (!real_name || !MANAGED_ROLES.includes(role)) {
-      req.flash('error', '姓名和身份不能为空');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '姓名和身份不能为空' });
     }
 
     if (['student', 'teacher'].includes(role) && (!school_id || !class_id)) {
-      req.flash('error', '学生和教师必须选择学校和班级');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '学生和教师必须选择学校和班级' });
     }
 
     if (class_id) {
       const cls = db.prepare('SELECT id, school_id FROM classes WHERE id = ?').get(class_id);
       if (!cls || (school_id && cls.school_id !== Number(school_id))) {
-        req.flash('error', '班级不存在或不属于所选学校');
-        return res.redirect('/students');
+        return res.status(400).json({ error: '班级不存在或不属于所选学校' });
       }
     }
 
     const nameExists = db.prepare('SELECT id FROM users WHERE real_name = ? AND id <> ?').get(real_name, userId);
     if (nameExists) {
-      req.flash('error', '该姓名已存在');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '该姓名已存在' });
     }
 
     if (password && password.length < 6) {
-      req.flash('error', '密码至少6位');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '密码至少6位' });
     }
 
     const finalSchoolId = role === 'executive_mentor' ? null : school_id;
@@ -368,12 +339,10 @@ exports.updateUser = (req, res) => {
     ).run(real_name, role, finalSchoolId || null, finalClassId || null,
           email || null, phone || null, profile || null, active, userId);
 
-    req.flash('success', '用户信息已更新');
-    res.redirect('/students');
+    res.json({ message: '用户信息已更新' });
   } catch (err) {
     console.error('更新用户错误:', err);
-    req.flash('error', '更新失败');
-    res.redirect('/students');
+    res.status(500).json({ error:  });
   }
 };
 
@@ -381,20 +350,16 @@ exports.deleteUser = (req, res) => {
   try {
     const user = db.prepare('SELECT id, real_name, role FROM users WHERE id = ?').get(req.params.id);
     if (!user) {
-      req.flash('error', '用户不存在');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '用户不存在' });
     }
     if (user.role === 'admin') {
-      req.flash('error', '不能删除管理员账号');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '不能删除管理员账号' });
     }
     deleteUserWithWorks(req.params.id);
-    req.flash('success', `用户 ${user.real_name} 已删除`);
-    res.redirect('/students');
+    res.json({ message: `用户 ${user.real_name} 已删除` });
   } catch (err) {
     console.error('删除用户错误:', err);
-    req.flash('error', '删除用户失败');
-    res.redirect('/students');
+    res.status(500).json({ error:  });
   }
 };
 
@@ -405,11 +370,10 @@ exports.batchDeleteUsers = (req, res) => {
     const ids = rawList
       .split(',')
       .map((id) => Number(id.trim()))
-      .filter((id) => Number.isInteger(id) && id !== req.session.user.id);
+      .filter((id) => Number.isInteger(id) && id !== req.user.id);
 
     if (ids.length === 0) {
-      req.flash('error', '请选择要删除的用户');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '请选择要删除的用户' });
     }
 
     const placeholders = ids.map(() => '?').join(',');
@@ -423,12 +387,10 @@ exports.batchDeleteUsers = (req, res) => {
       deleteUserWithWorks(id);
     }
 
-    req.flash('success', `已删除 ${safeIds.length} 名用户`);
-    res.redirect('/students');
+    res.json({ message: `已删除 ${safeIds.length} 名用户` });
   } catch (err) {
     console.error('批量删除用户错误:', err);
-    req.flash('error', '批量删除失败');
-    res.redirect('/students');
+    res.status(500).json({ error:  });
   }
 };
 
@@ -443,26 +405,23 @@ exports.showEditStudent = (req, res) => {
     ).get(req.params.id);
 
     if (!student) {
-      req.flash('error', '学生不存在');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '学生不存在' });
     }
 
-    if (isTeacher(req.session.user.role) && student.school_id !== req.session.user.school_id) {
-      req.flash('error', '无权编辑其他学校学生');
-      return res.redirect('/students');
+    if (isTeacher(req.user.role) && student.school_id !== req.user.school_id) {
+      return res.status(400).json({ error: '无权编辑其他学校学生' });
     }
 
-    const schools = isTeacher(req.session.user.role)
-      ? db.prepare('SELECT id, name FROM schools WHERE id = ?').all(req.session.user.school_id || 0)
+    const schools = isTeacher(req.user.role)
+      ? db.prepare('SELECT id, name FROM schools WHERE id = ?').all(req.user.school_id || 0)
       : db.prepare('SELECT id, name FROM schools ORDER BY name').all();
     const classes = db.prepare('SELECT id, name, grade FROM classes WHERE school_id = ? ORDER BY grade, name')
       .all(student.school_id);
 
-    res.render('students/edit', { title: '编辑学生', student, schools, classes, errors: [] });
+    res.json({ title: '编辑学生', student, schools, classes, errors: [] });
   } catch (err) {
     console.error('加载编辑学生错误:', err);
-    req.flash('error', '加载失败');
-    res.redirect('/students');
+    res.status(500).json({ error:  });
   }
 };
 
@@ -474,32 +433,27 @@ exports.updateStudent = (req, res) => {
     ).get(req.params.id);
 
     if (!student) {
-      req.flash('error', '学生不存在');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '学生不存在' });
     }
 
-    if (isTeacher(req.session.user.role)) {
-      if (Number(school_id) !== req.session.user.school_id) {
-        req.flash('error', '教师只能编辑本校学生');
-        return res.redirect(`/students/${req.params.id}/edit`);
+    if (isTeacher(req.user.role)) {
+      if (Number(school_id) !== req.user.school_id) {
+        return res.status(400).json({ error: '教师只能编辑本校学生' });
       }
     }
 
     const cls = db.prepare('SELECT id FROM classes WHERE id = ? AND school_id = ?')
       .get(class_id, school_id);
     if (!cls) {
-      req.flash('error', '班级不存在或不属于所选学校');
-      return res.redirect(`/students/${req.params.id}/edit`);
+      return res.status(400).json({ error: '班级不存在或不属于所选学校' });
     }
 
     db.prepare('UPDATE users SET school_id = ?, class_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
       .run(school_id, class_id, req.params.id);
-    req.flash('success', '学生信息已更新');
-    res.redirect(`/students/${req.params.id}`);
+    res.json({ message: '学生信息已更新' });
   } catch (err) {
     console.error('更新学生错误:', err);
-    req.flash('error', '更新失败');
-    res.redirect(`/students/${req.params.id}/edit`);
+    res.status(500).json({ error:  });
   }
 };
 
@@ -509,20 +463,16 @@ exports.deleteStudent = (req, res) => {
       "SELECT id, school_id FROM users WHERE id = ? AND role = 'student'"
     ).get(req.params.id);
     if (!student) {
-      req.flash('error', '学生不存在');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '学生不存在' });
     }
-    if (isTeacher(req.session.user.role) && student.school_id !== req.session.user.school_id) {
-      req.flash('error', '无权删除其他学校学生');
-      return res.redirect('/students');
+    if (isTeacher(req.user.role) && student.school_id !== req.user.school_id) {
+      return res.status(400).json({ error: '无权删除其他学校学生' });
     }
     deleteUserWithWorks(req.params.id);
-    req.flash('success', '学生已删除');
-    res.redirect('/students');
+    res.json({ message: '学生已删除' });
   } catch (err) {
     console.error('删除学生错误:', err);
-    req.flash('error', '删除失败');
-    res.redirect('/students');
+    res.status(500).json({ error:  });
   }
 };
 
@@ -530,16 +480,14 @@ exports.deleteStudent = (req, res) => {
 exports.detail = (req, res) => {
   try {
     const { id } = req.params;
-    const user = req.session.user;
+    const user = req.user;
 
     if (user.role === 'student' && Number(id) !== user.id) {
-      req.flash('error', '无权查看该学生档案');
-      return res.redirect('/works');
+      return res.status(400).json({ error: '无权查看该学生档案' });
     }
 
     if (!isStaff(user.role) && user.role !== 'student') {
-      req.flash('error', '无权查看学生档案');
-      return res.redirect('/dashboard');
+      return res.status(400).json({ error: '无权查看学生档案' });
     }
 
     const student = db.prepare(
@@ -551,13 +499,11 @@ exports.detail = (req, res) => {
     ).get(id);
 
     if (!student) {
-      req.flash('error', '学生不存在');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '学生不存在' });
     }
 
     if (isTeacher(user.role) && student.school_id !== user.school_id) {
-      req.flash('error', '无权查看其他学校学生');
-      return res.redirect('/students');
+      return res.status(400).json({ error: '无权查看其他学校学生' });
     }
 
     const courses = db.prepare(
@@ -590,21 +536,20 @@ exports.detail = (req, res) => {
        WHERE ev.student_id = ? ORDER BY ev.created_at DESC`
     ).all(id);
 
-    res.render('students/detail', {
+    res.json({
       title: `${student.real_name} - 成长档案`,
       student, courses, works, reflections, evaluations
     });
   } catch (err) {
     console.error('学生详情错误:', err);
-    req.flash('error', '加载学生详情失败');
-    res.redirect('/students');
+    res.status(500).json({ error:  });
   }
 };
 
 // 获取学校的班级（AJAX）
 exports.getClasses = (req, res) => {
   try {
-    if (req.session.user && isTeacher(req.session.user.role) && Number(req.params.schoolId) !== req.session.user.school_id) {
+    if (req.user && isTeacher(req.user.role) && Number(req.params.schoolId) !== req.user.school_id) {
       return res.status(403).json({ error: '无权访问该学校班级' });
     }
     const classes = db.prepare(
