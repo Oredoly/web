@@ -62,7 +62,7 @@ exports.list = (req, res) => {
     res.json({ title: '学生管理', students, schools, filters: req.query });
   } catch (err) {
     console.error('学生列表错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -162,7 +162,7 @@ exports.import = (req, res) => {
     res.json({ message: `成功导入 ${imported} 名用户` });
   } catch (err) {
     console.error('批量导入错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -180,7 +180,7 @@ exports.createSchool = (req, res) => {
     res.json({ message: '学校添加成功' });
   } catch (err) {
     console.error('添加学校错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -194,7 +194,7 @@ exports.deleteSchool = (req, res) => {
     res.json({ message: '学校已删除，关联班级已删除' });
   } catch (err) {
     console.error('删除学校错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -213,7 +213,7 @@ exports.createClass = (req, res) => {
     res.json({ message: '班级添加成功' });
   } catch (err) {
     console.error('添加班级错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -227,7 +227,7 @@ exports.deleteClass = (req, res) => {
     res.json({ message: '班级已删除' });
   } catch (err) {
     console.error('删除班级错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -275,7 +275,7 @@ exports.createUser = (req, res) => {
     res.json({ message: `用户 ${real_name} 添加成功` });
   } catch (err) {
     console.error('添加用户错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -342,7 +342,7 @@ exports.updateUser = (req, res) => {
     res.json({ message: '用户信息已更新' });
   } catch (err) {
     console.error('更新用户错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -359,7 +359,7 @@ exports.deleteUser = (req, res) => {
     res.json({ message: `用户 ${user.real_name} 已删除` });
   } catch (err) {
     console.error('删除用户错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -390,7 +390,7 @@ exports.batchDeleteUsers = (req, res) => {
     res.json({ message: `已删除 ${safeIds.length} 名用户` });
   } catch (err) {
     console.error('批量删除用户错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -421,7 +421,7 @@ exports.showEditStudent = (req, res) => {
     res.json({ title: '编辑学生', student, schools, classes, errors: [] });
   } catch (err) {
     console.error('加载编辑学生错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -453,7 +453,7 @@ exports.updateStudent = (req, res) => {
     res.json({ message: '学生信息已更新' });
   } catch (err) {
     console.error('更新学生错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -472,7 +472,7 @@ exports.deleteStudent = (req, res) => {
     res.json({ message: '学生已删除' });
   } catch (err) {
     console.error('删除学生错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -542,7 +542,7 @@ exports.detail = (req, res) => {
     });
   } catch (err) {
     console.error('学生详情错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 

@@ -10,9 +10,9 @@ router.use(requireAuth);
 router.get('/', controller.index);
 
 // 学校管理
-router.get('/schools', requireRole('admin'), controller.getSchools);
+router.get('/schools', requireRole('admin'), controller.showAddSchool);
 router.post('/schools', requireRole('admin'), controller.addSchool);
-router.get('/schools/:id', requireRole('admin'), controller.getSchool);
+router.get('/schools/:id', requireRole('admin'), controller.showSchool);
 router.post('/schools/:id/delete', requireRole('admin'), controller.deleteSchool);
 router.post('/schools/:id/classes', requireRole('admin'), controller.addClass);
 router.post('/schools/:id/classes/:classId/delete', requireRole('admin'), controller.deleteClass);

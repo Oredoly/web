@@ -37,7 +37,7 @@ exports.list = (req, res) => {
     res.json({ title: '课程管理', courses, themes, filters: req.query });
   } catch (err) {
     console.error('课程列表错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -108,7 +108,7 @@ exports.detail = (req, res) => {
     res.json({ title: course.title, course, lessons, resources, enrollments });
   } catch (err) {
     console.error('课程详情错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -125,7 +125,7 @@ exports.showEdit = (req, res) => {
     res.json({ title: '编辑课程', course, errors: [] });
   } catch (err) {
     console.error('加载编辑页错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -158,7 +158,7 @@ exports.update = (req, res) => {
     res.json({ message: '课程更新成功' });
   } catch (err) {
     console.error('更新课程错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -172,7 +172,7 @@ exports.delete = (req, res) => {
     res.json({ message: '课程已删除' });
   } catch (err) {
     console.error('删除课程错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -199,7 +199,7 @@ exports.addLesson = (req, res) => {
     res.json({ message: '课时添加成功' });
   } catch (err) {
     console.error('添加课时错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -226,7 +226,7 @@ exports.uploadResource = (req, res) => {
     res.json({ message: '资源上传成功' });
   } catch (err) {
     console.error('上传资源错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -259,7 +259,7 @@ exports.addTask = (req, res) => {
     res.json({ message: '任务添加成功' });
   } catch (err) {
     console.error('添加任务错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -296,7 +296,7 @@ exports.enroll = (req, res) => {
     res.json({ message: `已添加 ${added} 名学生到课程` });
   } catch (err) {
     console.error('报名错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 

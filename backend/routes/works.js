@@ -7,7 +7,7 @@ const { uploadWork } = require('../middleware/upload');
 router.use(requireAuth);
 
 router.get('/', controller.list);
-router.get('/upload-options', controller.getUploadOptions);
+router.get('/upload-options', controller.showUpload);
 router.post('/', uploadWork.single('file'), controller.upload);
 router.get('/:id', controller.detail);
 router.delete('/:id', controller.delete);

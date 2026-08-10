@@ -56,7 +56,7 @@ exports.showExport = (req, res) => {
     res.json({ title: '成长档案导出', tree, courses, filters: req.query });
   } catch (err) {
     console.error('导出页错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -94,7 +94,7 @@ exports.generate = (req, res) => {
     });
   } catch (err) {
     console.error('生成档案错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -203,7 +203,7 @@ exports.showReflection = (req, res) => {
     res.json({ title: '填写反思日志', enrollments, isMentor });
   } catch (err) {
     console.error('加载反思页错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -278,7 +278,7 @@ exports.submitReflection = (req, res) => {
     res.json({ message: '反思日志提交成功！' });
   } catch (err) {
     console.error('提交反思错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -328,6 +328,6 @@ exports.submitEvaluation = (req, res) => {
     res.json({ message: '评价提交成功！' });
   } catch (err) {
     console.error('提交评价错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };

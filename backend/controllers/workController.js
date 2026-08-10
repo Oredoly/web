@@ -52,7 +52,7 @@ exports.list = (req, res) => {
     res.json({ title: '作品管理', works, courses, filters: req.query });
   } catch (err) {
     console.error('作品列表错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -107,7 +107,7 @@ exports.showUpload = (req, res) => {
     res.json({ title: '上传作品', enrollments, courseOptions, students: [] });
   } catch (err) {
     console.error('加载上传页错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -193,7 +193,7 @@ exports.upload = (req, res) => {
   } catch (err) {
     console.error('上传作品错误:', err);
     removeUploadedFile(req.file);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -227,7 +227,7 @@ exports.detail = (req, res) => {
     res.json({ title: work.title, work });
   } catch (err) {
     console.error('作品详情错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -260,7 +260,7 @@ exports.delete = (req, res) => {
     res.json({ message: '作品已删除' });
   } catch (err) {
     console.error('删除作品错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -279,6 +279,6 @@ exports.reject = (req, res) => {
     res.json({ message: '作品已打回' });
   } catch (err) {
     console.error('打回作品错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };

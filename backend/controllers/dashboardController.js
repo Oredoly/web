@@ -159,7 +159,7 @@ exports.addSchool = (req, res) => {
     res.json({ message: '学校添加成功' });
   } catch (err) {
     console.error('添加学校错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -173,7 +173,7 @@ exports.deleteSchool = (req, res) => {
     res.json({ message: '学校已删除' });
   } catch (err) {
     console.error('删除学校错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -202,7 +202,7 @@ exports.showSchool = (req, res) => {
     res.json({ title: `${school.name} - 学校详情`, school, classes });
   } catch (err) {
     console.error('加载学校详情错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -221,7 +221,7 @@ exports.addClass = (req, res) => {
     res.json({ message: '班级添加成功' });
   } catch (err) {
     console.error('添加班级错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -236,6 +236,6 @@ exports.deleteClass = (req, res) => {
     res.json({ message: '班级已删除' });
   } catch (err) {
     console.error('删除班级错误:', err);
-    res.status(500).json({ error:  });
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
