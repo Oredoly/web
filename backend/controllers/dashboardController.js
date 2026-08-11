@@ -28,7 +28,7 @@ function hashCode(str) {
 }
 
 exports.index = (req, res) => {
-  const user = req.session.user;
+  const user = req.user;
   const fortune = getDailyFortune(user.id);
   const today = new Date().toLocaleDateString('zh-CN', {
     year:'numeric', month:'long', day:'numeric', weekday:'long'
@@ -134,35 +134,32 @@ exports.index = (req, res) => {
       viewData.todayReflectionCount = todayReflection.count;
     }
 
-    res.render('dashboard/index', viewData);
+    res.json(viewData);
   } catch (err) {
     console.error('仪表盘错误:', err);
-    res.render('dashboard/index', { title: '工作台', fortune, today, user, error: '加载数据失败' });
+    res.json({ title: '工作台', fortune, today, user, error: '加载数据失败' });
   }
 };
 
 exports.showAddSchool = (req, res) => {
-  res.render('dashboard/school_add', { title: '添加加盟学校', school: {}, errors: [] });
+  res.json({ title: '添加加盟学校', school: {}, errors: [] });
 };
 
 exports.addSchool = (req, res) => {
   try {
     const { name, description, tags, region, contact_person, contact_phone } = req.body;
     if (!name || !name.trim()) {
-      req.flash('error', '学校名称不能为空');
-      return res.redirect('/dashboard/schools/add');
+      return res.status(400).json({ error: '学校名称不能为空' });
     }
     const result = db.prepare(
       `INSERT INTO schools (name, description, tags, region, contact_person, contact_phone)
        VALUES (?, ?, ?, ?, ?, ?)`
     ).run(name.trim(), description || null, tags || null, region || null,
           contact_person || null, contact_phone || null);
-    req.flash('success', '学校添加成功');
-    res.redirect(`/dashboard/schools/${result.lastInsertRowid}`);
+    res.json({ message: '学校添加成功' });
   } catch (err) {
     console.error('添加学校错误:', err);
-    req.flash('error', '添加学校失败');
-    res.redirect('/dashboard/schools/add');
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -170,16 +167,13 @@ exports.deleteSchool = (req, res) => {
   try {
     const school = db.prepare('SELECT id FROM schools WHERE id = ?').get(req.params.id);
     if (!school) {
-      req.flash('error', '学校不存在');
-      return res.redirect('/dashboard');
+      return res.status(400).json({ error: '学校不存在' });
     }
     db.prepare('DELETE FROM schools WHERE id = ?').run(req.params.id);
-    req.flash('success', '学校已删除');
-    res.redirect('/dashboard');
+    res.json({ message: '学校已删除' });
   } catch (err) {
     console.error('删除学校错误:', err);
-    req.flash('error', '删除学校失败');
-    res.redirect('/dashboard');
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -194,8 +188,7 @@ exports.showSchool = (req, res) => {
     `).get(req.params.id);
 
     if (!school) {
-      req.flash('error', '学校不存在');
-      return res.redirect('/dashboard');
+      return res.status(400).json({ error: '学校不存在' });
     }
 
     const classes = db.prepare(`
@@ -206,11 +199,10 @@ exports.showSchool = (req, res) => {
       ORDER BY c.grade, c.name
     `).all(req.params.id);
 
-    res.render('dashboard/school', { title: `${school.name} - 学校详情`, school, classes });
+    res.json({ title: `${school.name} - 学校详情`, school, classes });
   } catch (err) {
     console.error('加载学校详情错误:', err);
-    req.flash('error', '加载学校详情失败');
-    res.redirect('/dashboard');
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -219,21 +211,17 @@ exports.addClass = (req, res) => {
     const { name, grade } = req.body;
     const school = db.prepare('SELECT id FROM schools WHERE id = ?').get(req.params.id);
     if (!school) {
-      req.flash('error', '学校不存在');
-      return res.redirect('/dashboard');
+      return res.status(400).json({ error: '学校不存在' });
     }
     if (!name || !name.trim()) {
-      req.flash('error', '班级名称不能为空');
-      return res.redirect(`/dashboard/schools/${req.params.id}`);
+      return res.status(400).json({ error: '班级名称不能为空' });
     }
     db.prepare('INSERT INTO classes (name, school_id, grade) VALUES (?, ?, ?)')
       .run(name.trim(), req.params.id, grade || null);
-    req.flash('success', '班级添加成功');
-    res.redirect(`/dashboard/schools/${req.params.id}`);
+    res.json({ message: '班级添加成功' });
   } catch (err) {
     console.error('添加班级错误:', err);
-    req.flash('error', '添加班级失败');
-    res.redirect(`/dashboard/schools/${req.params.id}`);
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -242,15 +230,12 @@ exports.deleteClass = (req, res) => {
     const cls = db.prepare('SELECT id FROM classes WHERE id = ? AND school_id = ?')
       .get(req.params.classId, req.params.id);
     if (!cls) {
-      req.flash('error', '班级不存在');
-      return res.redirect(`/dashboard/schools/${req.params.id}`);
+      return res.status(400).json({ error: '班级不存在' });
     }
     db.prepare('DELETE FROM classes WHERE id = ?').run(req.params.classId);
-    req.flash('success', '班级已删除');
-    res.redirect(`/dashboard/schools/${req.params.id}`);
+    res.json({ message: '班级已删除' });
   } catch (err) {
     console.error('删除班级错误:', err);
-    req.flash('error', '删除班级失败');
-    res.redirect(`/dashboard/schools/${req.params.id}`);
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };

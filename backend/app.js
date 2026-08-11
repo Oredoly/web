@@ -1,36 +1,40 @@
 require('dotenv').config();
 const crypto = require('crypto');
 const express = require('express');
-const session = require('express-session');
-const flash = require('connect-flash');
+const cors = require('cors');
 const path = require('path');
-const ejsLayouts = require('express-ejs-layouts');
-const { injectUser } = require('./middleware/auth');
 const { UPLOAD_ROOT } = require('./middleware/upload');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const API_PREFIX = process.env.API_PREFIX || '/api';
 
-if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
-  throw new Error('SESSION_SECRET is required in production');
+// ============================================
+// JWT 密钥
+// ============================================
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET is required in production');
 }
-
-const sessionSecret = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+app.set('jwt_secret', JWT_SECRET);
 
 // ============================================
 // 中间件配置
 // ============================================
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
-app.set('layout', 'layout');
-app.use(ejsLayouts);
 app.disable('x-powered-by');
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  credentials: true
+}));
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'same-origin');
   next();
 });
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
+// 静态文件（上传目录）
 app.use('/uploads', express.static(UPLOAD_ROOT, {
   dotfiles: 'deny',
   index: false,
@@ -41,60 +45,36 @@ app.use('/uploads', express.static(UPLOAD_ROOT, {
     }
   }
 }));
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-
-app.use(session({
-  secret: sessionSecret,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    maxAge: 24 * 60 * 60 * 1000, // 24小时
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production'
-  }
-}));
-
-app.use(flash());
-app.use(injectUser);
 
 // ============================================
-// 路由
+// API 路由
 // ============================================
-app.use('/auth', require('./routes/auth'));
-app.use('/dashboard', require('./routes/dashboard'));
-app.use('/courses', require('./routes/courses'));
-app.use('/students', require('./routes/students'));
-app.use('/works', require('./routes/works'));
-app.use('/archives', require('./routes/archives'));
+app.use(`${API_PREFIX}/auth`, require('./routes/auth'));
+app.use(`${API_PREFIX}/dashboard`, require('./routes/dashboard'));
+app.use(`${API_PREFIX}/courses`, require('./routes/courses'));
+app.use(`${API_PREFIX}/students`, require('./routes/students'));
+app.use(`${API_PREFIX}/works`, require('./routes/works'));
+app.use(`${API_PREFIX}/archives`, require('./routes/archives'));
 
-// 首页重定向
-app.get('/', (req, res) => {
-  if (req.session.user) return res.redirect('/dashboard');
-  res.redirect('/auth/login');
+// 健康检查
+app.get(`${API_PREFIX}/health`, (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // 404
 app.use((req, res) => {
-  res.status(404).render('error', {
-    title: '页面未找到',
-    message: '您访问的页面不存在',
-    error: { status: 404 }
-  });
+  res.status(404).json({ error: 'Not Found', message: '请求的资源不存在' });
 });
 
 // 全局错误处理
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   console.error('服务器错误:', err);
-  res.status(err.status || 500).render('error', {
-    title: '服务器错误',
-    message: err.message || '服务器内部错误',
-    error: { status: err.status || 500, stack: process.env.NODE_ENV === 'development' ? err.stack : '' }
-  });
+  res.status(500).json({ error: '服务器内部错误', message: process.env.NODE_ENV === 'development' ? err.message : '请稍后重试' });
 });
 
 app.listen(PORT, () => {
-  console.log(`\n🚀 PBL 数字化平台已启动: http://localhost:${PORT}`);
-  console.log('📋 环境:', process.env.NODE_ENV || 'development');
+  console.log(`🚀 PBL API 服务器启动: http://localhost:${PORT}${API_PREFIX}`);
+  console.log(`📝 前端开发地址: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
 });
+
+module.exports = app;

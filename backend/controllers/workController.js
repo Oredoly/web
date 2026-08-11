@@ -31,17 +31,17 @@ exports.list = (req, res) => {
       sql += ' AND (w.title LIKE ? OR w.description LIKE ?)';
       params.push(`%${req.query.search}%`, `%${req.query.search}%`);
     }
-    if (req.session.user.role === 'student') {
+    if (req.user.role === 'student') {
       sql += ' AND w.student_id = ?';
-      params.push(req.session.user.id);
-    } else if (!isStaff(req.session.user.role)) {
+      params.push(req.user.id);
+    } else if (!isStaff(req.user.role)) {
       sql += ' AND w.student_id = ?';
-      params.push(req.session.user.id);
+      params.push(req.user.id);
     }
 
-    if (isTeacher(req.session.user.role)) {
+    if (isTeacher(req.user.role)) {
       sql += ` AND (u.school_id = ? OR (c.id IS NOT NULL AND c.status = 'published'))`;
-      params.push(req.session.user.school_id || 0);
+      params.push(req.user.school_id || 0);
     }
 
     sql += ' ORDER BY w.created_at DESC';
@@ -49,29 +49,23 @@ exports.list = (req, res) => {
     const works = db.prepare(sql).all(...params);
     const courses = db.prepare('SELECT id, title FROM courses ORDER BY title').all();
 
-    res.render('works/list', { title: '作品管理', works, courses, filters: req.query });
+    res.json({ title: '作品管理', works, courses, filters: req.query });
   } catch (err) {
     console.error('作品列表错误:', err);
-    req.flash('error', '加载作品列表失败');
-    res.redirect('/dashboard');
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
 // 上传作品页面
 exports.showUpload = (req, res) => {
   try {
-    if (req.session.user.role === 'admin') {
-      req.flash('error', '管理员不可上传作品');
-      return res.redirect('/works');
-    }
-
-    const userId = req.session.user.id;
+    const userId = req.user.id;
     let enrollments = [];
 
-    if (isStaff(req.session.user.role)) {
+    if (isStaff(req.user.role)) {
       let students;
-      if (isTeacher(req.session.user.role)) {
-        const schoolId = req.session.user.school_id || 0;
+      if (isTeacher(req.user.role)) {
+        const schoolId = req.user.school_id || 0;
         enrollments = db.prepare(
           `SELECT e.id as enrollment_id, c.id as course_id, c.title as course_title,
                   u.real_name as student_name, u.id as student_id
@@ -96,7 +90,7 @@ exports.showUpload = (req, res) => {
         students = db.prepare("SELECT id, real_name FROM users WHERE role = 'student' ORDER BY real_name").all();
       }
       const courseOptions = Array.from(new Map(enrollments.map((e) => [e.course_id, e])).values());
-      return res.render('works/upload', { title: '上传作品', enrollments, courseOptions, students });
+      return res.json({ title: '上传作品', enrollments, courseOptions, students });
     }
 
     enrollments = db.prepare(
@@ -106,42 +100,37 @@ exports.showUpload = (req, res) => {
     ).all(userId);
 
     const courseOptions = Array.from(new Map(enrollments.map((e) => [e.course_id, e])).values());
-    res.render('works/upload', { title: '上传作品', enrollments, courseOptions, students: [] });
+    res.json({ title: '上传作品', enrollments, courseOptions, students: [] });
   } catch (err) {
     console.error('加载上传页错误:', err);
-    req.flash('error', '加载失败');
-    res.redirect('/works');
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
 // 处理作品上传
 exports.upload = (req, res) => {
   try {
-    if (req.session.user.role === 'admin') {
+    if (req.user.role === 'admin') {
       removeUploadedFile(req.file);
-      req.flash('error', '管理员不可上传作品');
-      return res.redirect('/works');
+      return res.status(400).json({ error: '管理员不可上传作品' });
     }
 
     if (!req.file) {
-      req.flash('error', '请选择要上传的文件');
-      return res.redirect('/works/upload');
+      return res.status(400).json({ error: '请选择要上传的文件' });
     }
 
     const { title, description, enrollment_id, task_id, student_id } = req.body;
-    const user = req.session.user;
+    const user = req.user;
     const staff = isStaff(user.role);
 
     if (!title) {
       removeUploadedFile(req.file);
-      req.flash('error', '请填写作品名称');
-      return res.redirect('/works/upload');
+      return res.status(400).json({ error: '请填写作品名称' });
     }
 
     if (!staff && student_id && Number(student_id) !== user.id) {
       removeUploadedFile(req.file);
-      req.flash('error', '无权替其他学生上传作品');
-      return res.redirect('/works/upload');
+      return res.status(400).json({ error: '无权替其他学生上传作品' });
     }
 
     const actualStudentId = staff ? (student_id || user.id) : user.id;
@@ -151,14 +140,12 @@ exports.upload = (req, res) => {
 
     if (!student) {
       removeUploadedFile(req.file);
-      req.flash('error', '所选学生不存在');
-      return res.redirect('/works/upload');
+      return res.status(400).json({ error: '所选学生不存在' });
     }
 
     if (isTeacher(user.role) && student.school_id !== user.school_id) {
       removeUploadedFile(req.file);
-      req.flash('error', '教师只能为本校学生上传作品');
-      return res.redirect('/works/upload');
+      return res.status(400).json({ error: '教师只能为本校学生上传作品' });
     }
 
     let enrollmentCourseId = null;
@@ -168,8 +155,7 @@ exports.upload = (req, res) => {
       ).get(enrollment_id, actualStudentId);
       if (!enrollment) {
         removeUploadedFile(req.file);
-        req.flash('error', '所选课程报名记录不属于该学生');
-        return res.redirect('/works/upload');
+        return res.status(400).json({ error: '所选课程报名记录不属于该学生' });
       }
       enrollmentCourseId = enrollment.course_id;
     }
@@ -183,8 +169,7 @@ exports.upload = (req, res) => {
       `).get(task_id);
       if (!task || (enrollmentCourseId && task.course_id !== enrollmentCourseId)) {
         removeUploadedFile(req.file);
-        req.flash('error', '所选任务不属于当前课程');
-        return res.redirect('/works/upload');
+        return res.status(400).json({ error: '所选任务不属于当前课程' });
       }
     }
 
@@ -200,13 +185,11 @@ exports.upload = (req, res) => {
     ).run(actualStudentId, enrollment_id || null, task_id || null, title,
           description || null, req.file.path, displayType, req.file.size);
 
-    req.flash('success', '作品上传成功！');
-    res.redirect('/works');
+    res.json({ message: '作品上传成功！' });
   } catch (err) {
     console.error('上传作品错误:', err);
     removeUploadedFile(req.file);
-    req.flash('error', '上传失败');
-    res.redirect('/works/upload');
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -225,26 +208,22 @@ exports.detail = (req, res) => {
     ).get(req.params.id);
 
     if (!work) {
-      req.flash('error', '作品不存在');
-      return res.redirect('/works');
+      return res.status(400).json({ error: '作品不存在' });
     }
 
-    if (!isStaff(req.session.user.role) && work.student_id !== req.session.user.id) {
-      req.flash('error', '无权查看该作品');
-      return res.redirect('/works');
+    if (!isStaff(req.user.role) && work.student_id !== req.user.id) {
+      return res.status(400).json({ error: '无权查看该作品' });
     }
 
-    if (isTeacher(req.session.user.role) && work.student_school_id !== req.session.user.school_id
+    if (isTeacher(req.user.role) && work.student_school_id !== req.user.school_id
         && work.course_status !== 'published') {
-      req.flash('error', '无权查看其他学校作品');
-      return res.redirect('/works');
+      return res.status(400).json({ error: '无权查看其他学校作品' });
     }
 
-    res.render('works/detail', { title: work.title, work });
+    res.json({ title: work.title, work });
   } catch (err) {
     console.error('作品详情错误:', err);
-    req.flash('error', '加载失败');
-    res.redirect('/works');
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -259,30 +238,25 @@ exports.delete = (req, res) => {
     `).get(req.params.id);
 
     if (!work) {
-      req.flash('error', '作品不存在');
-      return res.redirect('/works');
+      return res.status(400).json({ error: '作品不存在' });
     }
 
-    if (!isStaff(req.session.user.role) && work.student_id !== req.session.user.id) {
-      req.flash('error', '无权删除该作品');
-      return res.redirect('/works');
+    if (!isStaff(req.user.role) && work.student_id !== req.user.id) {
+      return res.status(400).json({ error: '无权删除该作品' });
     }
 
-    if (isTeacher(req.session.user.role) && work.student_school_id !== req.session.user.school_id) {
-      req.flash('error', '无权删除其他学校作品');
-      return res.redirect('/works');
+    if (isTeacher(req.user.role) && work.student_school_id !== req.user.school_id) {
+      return res.status(400).json({ error: '无权删除其他学校作品' });
     }
 
     if (work.file_path) {
       try { fs.unlinkSync(work.file_path); } catch (e) { /* 文件可能已删除 */ }
     }
     db.prepare('DELETE FROM works WHERE id = ?').run(req.params.id);
-    req.flash('success', '作品已删除');
-    res.redirect('/works');
+    res.json({ message: '作品已删除' });
   } catch (err) {
     console.error('删除作品错误:', err);
-    req.flash('error', '删除失败');
-    res.redirect('/works');
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
 
@@ -290,8 +264,7 @@ exports.reject = (req, res) => {
   try {
     const work = db.prepare('SELECT id FROM works WHERE id = ?').get(req.params.id);
     if (!work) {
-      req.flash('error', '作品不存在');
-      return res.redirect('/works');
+      return res.status(400).json({ error: '作品不存在' });
     }
 
     const reason = (req.body.reason || '').trim() || '作品不符合要求，请修改后重新提交';
@@ -299,11 +272,9 @@ exports.reject = (req, res) => {
       "UPDATE works SET review_status = 'rejected', reject_reason = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
     ).run(reason, req.params.id);
 
-    req.flash('success', '作品已打回');
-    res.redirect('/works');
+    res.json({ message: '作品已打回' });
   } catch (err) {
     console.error('打回作品错误:', err);
-    req.flash('error', '打回失败');
-    res.redirect('/works');
+    res.status(500).json({ error: '操作失败，请稍后重试' });
   }
 };
