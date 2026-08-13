@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, Tree, Button, Typography, Spin, Descriptions, Tag, List, Space } from 'antd';
+import { Card, Tree, Button, Typography, Spin, Descriptions, Tag, List, Space, Progress, Modal, Input, message } from 'antd';
 import { FolderOpenOutlined, UserOutlined, FileTextOutlined } from '@ant-design/icons';
 import { archiveAPI } from '../../api';
 import { useAuth } from '../../store/AuthContext';
@@ -12,6 +12,9 @@ export default function ArchiveIndex() {
   const [archive, setArchive] = useState(null);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [selectedStudentId, setSelectedStudentId] = useState(null);
+  const [recordOpen, setRecordOpen] = useState(false);
+  const [record, setRecord] = useState('');
 
   useEffect(() => {
     archiveAPI.getTree().then((res) => {
@@ -44,6 +47,7 @@ export default function ArchiveIndex() {
     const key = keys[0];
     if (!key.startsWith('user-')) return;
     const studentId = key.replace('user-', '');
+    setSelectedStudentId(studentId);
     setDetailLoading(true);
     try {
       const res = await archiveAPI.generate(studentId);
@@ -82,9 +86,10 @@ export default function ArchiveIndex() {
           <Tree treeData={treeData} onSelect={handleSelect} showIcon defaultExpandAll={false} />
         </Card>
         <Card title="档案详情" style={{ flex: 1 }}>
-          {detailLoading ? <Spin /> : archive ? <ArchiveDetail archive={archive} /> : <Text type="secondary">请从左侧选择学生查看档案</Text>}
+          {detailLoading ? <Spin /> : archive ? <><Space style={{ marginBottom: 16 }}><Button onClick={() => window.print()}>导出 PDF</Button><Button type="primary" onClick={() => setRecordOpen(true)}>添加成长记录</Button></Space><ArchiveDetail archive={archive} /></> : <Text type="secondary">请从左侧选择学生查看档案</Text>}
         </Card>
       </div>
+      <Modal title="添加成长记录" open={recordOpen} onCancel={() => setRecordOpen(false)} onOk={async () => { if (!record.trim()) return; await archiveAPI.addGrowthRecord({ student_id: selectedStudentId, description: record }); message.success('成长记录已添加'); setRecord(''); setRecordOpen(false); handleSelect([`user-${selectedStudentId}`]); }}><Input.TextArea rows={4} value={record} onChange={(e) => setRecord(e.target.value)} /></Modal>
     </div>
   );
 }
@@ -99,6 +104,12 @@ function ArchiveDetail({ archive }) {
         <Descriptions.Item label="班级">{archive.student?.class_name}</Descriptions.Item>
         <Descriptions.Item label="生成时间">{archive.generatedAt}</Descriptions.Item>
       </Descriptions>
+
+      <Title level={5}>能力评分</Title>
+      <Space direction="vertical" style={{ width: '100%', marginBottom: 16 }}>{[['problem_discovery','问题发现'],['solution_design','方案设计'],['hands_on','动手操作'],['data_analysis','数据分析'],['presentation','表达展示']].map(([key,label]) => <div key={key}><Text>{label}：{archive.ability?.[key] || 0} / 5</Text><Progress percent={(archive.ability?.[key] || 0) * 20} showInfo={false} /></div>)}</Space>
+
+      <Title level={5}>成长轨迹</Title>
+      <List dataSource={archive.growthRecords || []} locale={{ emptyText: '暂无成长记录' }} renderItem={(item) => <List.Item><List.Item.Meta title={<Space><span>{item.description}</span><Tag color={item.event_type === 'teacher' ? 'blue' : 'default'}>{item.event_type === 'teacher' ? '教师标记' : '系统记录'}</Tag></Space>} description={item.created_at} /></List.Item>} />
 
       <Title level={5}>参与课程</Title>
       <List dataSource={archive.courses || []} renderItem={(c) => (

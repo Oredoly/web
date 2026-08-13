@@ -35,7 +35,14 @@ function loadStudentArchive(studentId) {
      WHERE ev.student_id = ? ORDER BY ev.created_at DESC`
   ).all(studentId);
 
-  return { student, courses, works, reflections, evaluations };
+  const ability = db.prepare(`SELECT ROUND(AVG(problem_discovery),1) problem_discovery, ROUND(AVG(solution_design),1) solution_design, ROUND(AVG(hands_on),1) hands_on, ROUND(AVG(data_analysis),1) data_analysis, ROUND(AVG(presentation),1) presentation FROM work_reviews r JOIN works w ON w.id=r.work_id WHERE w.student_id=?`).get(studentId);
+  const growthRecords = db.prepare(`SELECT g.*, u.real_name recorder_name FROM growth_records g LEFT JOIN users u ON u.id=g.recorded_by WHERE g.student_id=? ORDER BY g.created_at DESC`).all(studentId);
+  if (!growthRecords.length) {
+    works.forEach((work) => growthRecords.push({ event_type: 'system', description: `提交作品《${work.title}》`, created_at: work.created_at }));
+    growthRecords.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  }
+
+  return { student, courses, works, reflections, evaluations, ability, growthRecords };
 }
 
 // 档案导出页面
@@ -90,12 +97,25 @@ exports.generate = (req, res) => {
       works: archive.works,
       reflections: archive.reflections,
       evaluations: archive.evaluations,
+      ability: archive.ability,
+      growthRecords: archive.growthRecords,
       generatedAt: new Date().toLocaleString('zh-CN')
     });
   } catch (err) {
     console.error('生成档案错误:', err);
     res.status(500).json({ error: '操作失败，请稍后重试' });
   }
+};
+
+exports.addGrowthRecord = (req, res) => {
+  try {
+    const description = (req.body.description || '').trim();
+    const student = db.prepare("SELECT id, school_id FROM users WHERE id=? AND role='student'").get(req.body.student_id);
+    if (!student || !description) return res.status(400).json({ error: '请选择学生并填写记录内容' });
+    if (isTeacher(req.user.role) && student.school_id !== req.user.school_id) return res.status(403).json({ error: '无权记录该学生' });
+    db.prepare("INSERT INTO growth_records (student_id,event_type,description,recorded_by) VALUES (?,'teacher',?,?)").run(student.id, description, req.user.id);
+    res.json({ message: '成长记录已添加' });
+  } catch (err) { res.status(500).json({ error: '添加成长记录失败' }); }
 };
 
 exports.generateBatch = (req, res) => {

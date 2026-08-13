@@ -9,6 +9,23 @@ function removeUploadedFile(file) {
   }
 }
 
+function canAccessStudent(user, student) {
+  return !isTeacher(user.role) || student.school_id === user.school_id;
+}
+
+exports.pendingTasks = (req, res) => {
+  try {
+    if (req.user.role !== 'student') return res.json({ tasks: [] });
+    const tasks = db.prepare(`SELECT t.id, t.title, t.description, c.title AS course_title,
+      e.id AS enrollment_id FROM enrollments e JOIN courses c ON c.id=e.course_id
+      JOIN lessons l ON l.course_id=c.id JOIN tasks t ON t.lesson_id=l.id
+      WHERE e.student_id=? AND c.status='published' AND t.require_upload=1
+      AND NOT EXISTS (SELECT 1 FROM works w WHERE w.student_id=e.student_id AND w.task_id=t.id)
+      ORDER BY t.created_at DESC`).all(req.user.id);
+    res.json({ tasks });
+  } catch (err) { res.status(500).json({ error: '加载待办任务失败' }); }
+};
+
 // 作品列表
 exports.list = (req, res) => {
   try {
@@ -119,7 +136,7 @@ exports.upload = (req, res) => {
       return res.status(400).json({ error: '请选择要上传的文件' });
     }
 
-    const { title, description, enrollment_id, task_id, student_id } = req.body;
+    const { title, description, enrollment_id, task_id, student_id, parent_work_id } = req.body;
     const user = req.user;
     const staff = isStaff(user.role);
 
@@ -178,14 +195,26 @@ exports.upload = (req, res) => {
                         ['.mp4', '.webm'].includes(ext) ? 'video' :
                         ext === '.pdf' ? 'pdf' : 'file';
 
-    db.prepare(
+    let version = 1;
+    let parentId = null;
+    if (parent_work_id) {
+      const old = db.prepare('SELECT * FROM works WHERE id = ? AND student_id = ?').get(parent_work_id, actualStudentId);
+      if (!old || old.review_status !== 'rejected') { removeUploadedFile(req.file); return res.status(400).json({ error: '该作品不可重新提交' }); }
+      parentId = old.parent_work_id || old.id;
+      version = db.prepare('SELECT COALESCE(MAX(version), 1) + 1 AS version FROM works WHERE id = ? OR parent_work_id = ?').get(parentId, parentId).version;
+    }
+    const insertResult = db.prepare(
       `INSERT INTO works (student_id, enrollment_id, task_id, title, description,
-        file_path, file_type, file_size)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        file_path, file_type, file_size, parent_work_id, version)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(actualStudentId, enrollment_id || null, task_id || null, title,
-          description || null, req.file.path, displayType, req.file.size);
+          description || null, req.file.path, displayType, req.file.size, parentId, version);
 
-    res.json({ message: '作品上传成功！' });
+    db.prepare("INSERT INTO growth_records (student_id,event_type,description) VALUES (?,'system',?)").run(actualStudentId, `提交作品《${title}》`);
+    const workCount = db.prepare('SELECT COUNT(*) count FROM works WHERE student_id=?').get(actualStudentId).count;
+    if (workCount % 3 === 0) db.prepare("INSERT INTO growth_records (student_id,event_type,description) VALUES (?,'system',?)").run(actualStudentId, `累计完成 ${workCount} 个作品`);
+
+    res.json({ message: '作品上传成功！', id: insertResult.lastInsertRowid });
   } catch (err) {
     console.error('上传作品错误:', err);
     removeUploadedFile(req.file);
@@ -220,7 +249,10 @@ exports.detail = (req, res) => {
       return res.status(400).json({ error: '无权查看其他学校作品' });
     }
 
-    res.json({ title: work.title, work });
+    const review = db.prepare(`SELECT r.*, u.real_name reviewer_name FROM work_reviews r JOIN users u ON u.id=r.reviewer_id WHERE r.work_id=?`).get(work.id);
+    const rootId = work.parent_work_id || work.id;
+    const versions = db.prepare(`SELECT id, version, title, review_status, created_at FROM works WHERE id=? OR parent_work_id=? ORDER BY version DESC`).all(rootId, rootId);
+    res.json({ title: work.title, work, review, versions });
   } catch (err) {
     console.error('作品详情错误:', err);
     res.status(500).json({ error: '操作失败，请稍后重试' });
@@ -277,4 +309,22 @@ exports.reject = (req, res) => {
     console.error('打回作品错误:', err);
     res.status(500).json({ error: '操作失败，请稍后重试' });
   }
+};
+
+exports.review = (req, res) => {
+  try {
+    const work = db.prepare(`SELECT w.*, u.school_id FROM works w JOIN users u ON u.id=w.student_id WHERE w.id=?`).get(req.params.id);
+    if (!work || !canAccessStudent(req.user, work)) return res.status(403).json({ error: '无权批改该作品' });
+    const keys = ['problem_discovery', 'solution_design', 'hands_on', 'data_analysis', 'presentation'];
+    if (keys.some((key) => !Number.isInteger(Number(req.body[key])) || Number(req.body[key]) < 1 || Number(req.body[key]) > 5)) return res.status(400).json({ error: '五项评分均须为1-5的整数' });
+    const status = req.body.status === 'rejected' ? 'rejected' : 'approved';
+    db.transaction(() => {
+      db.prepare(`INSERT INTO work_reviews (work_id,reviewer_id,comment,suggestion,problem_discovery,solution_design,hands_on,data_analysis,presentation)
+        VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(work_id) DO UPDATE SET reviewer_id=excluded.reviewer_id,comment=excluded.comment,suggestion=excluded.suggestion,problem_discovery=excluded.problem_discovery,solution_design=excluded.solution_design,hands_on=excluded.hands_on,data_analysis=excluded.data_analysis,presentation=excluded.presentation,updated_at=CURRENT_TIMESTAMP`)
+        .run(work.id, req.user.id, req.body.comment || null, req.body.suggestion || null, ...keys.map((key) => Number(req.body[key])));
+      db.prepare('UPDATE works SET review_status=?, reject_reason=?, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(status, status === 'rejected' ? (req.body.suggestion || '请修改后重新提交') : null, work.id);
+      db.prepare("INSERT INTO growth_records (student_id,event_type,description) VALUES (?,'system',?)").run(work.student_id, `作品《${work.title}》获得教师批改`);
+    })();
+    res.json({ message: '批改已保存' });
+  } catch (err) { console.error(err); res.status(500).json({ error: '保存批改失败' }); }
 };

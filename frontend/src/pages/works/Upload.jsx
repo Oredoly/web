@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, Form, Input, Select, Upload, Button, Typography, message, Space } from 'antd';
 import { UploadOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { workAPI, courseAPI } from '../../api';
@@ -10,6 +10,7 @@ const { Title } = Typography;
 export default function WorkUpload() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [courses, setCourses] = useState([]);
@@ -20,6 +21,7 @@ export default function WorkUpload() {
       workAPI.uploadOptions().then((res) => {
         const opts = res.enrollments || res.courseOptions || [];
         setCourses(opts.map((c) => ({ label: c.course_title, value: c.enrollment_id || c.course_id })));
+        if (searchParams.get('enrollment_id')) form.setFieldValue('enrollment_id', Number(searchParams.get('enrollment_id')));
       }).catch(() => {});
     }
   }, []);
@@ -33,6 +35,8 @@ export default function WorkUpload() {
       formData.append('title', values.title);
       formData.append('description', values.description || '');
       formData.append('enrollment_id', values.enrollment_id || '');
+      formData.append('task_id', searchParams.get('task_id') || '');
+      formData.append('parent_work_id', searchParams.get('parent_work_id') || '');
       await workAPI.upload(formData);
       message.success('作品上传成功');
       navigate('/works');

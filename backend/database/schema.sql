@@ -194,11 +194,41 @@ CREATE TABLE IF NOT EXISTS works (
   thumbnail_path TEXT,
   review_status TEXT DEFAULT 'pending' CHECK(review_status IN ('pending','approved','rejected')),
   reject_reason TEXT,
+  parent_work_id INTEGER,
+  version INTEGER DEFAULT 1,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (enrollment_id) REFERENCES enrollments(id) ON DELETE SET NULL,
   FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS work_reviews (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  work_id INTEGER NOT NULL UNIQUE,
+  reviewer_id INTEGER NOT NULL,
+  comment TEXT,
+  suggestion TEXT,
+  problem_discovery INTEGER NOT NULL CHECK(problem_discovery BETWEEN 1 AND 5),
+  solution_design INTEGER NOT NULL CHECK(solution_design BETWEEN 1 AND 5),
+  hands_on INTEGER NOT NULL CHECK(hands_on BETWEEN 1 AND 5),
+  data_analysis INTEGER NOT NULL CHECK(data_analysis BETWEEN 1 AND 5),
+  presentation INTEGER NOT NULL CHECK(presentation BETWEEN 1 AND 5),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (work_id) REFERENCES works(id) ON DELETE CASCADE,
+  FOREIGN KEY (reviewer_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS growth_records (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  student_id INTEGER NOT NULL,
+  event_type TEXT NOT NULL DEFAULT 'teacher',
+  description TEXT NOT NULL,
+  recorded_by INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (recorded_by) REFERENCES users(id)
 );
 
 -- 13. 反思日志
