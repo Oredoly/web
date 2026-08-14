@@ -15,6 +15,9 @@ if (!workColumns.includes('review_status')) {
 if (!workColumns.includes('reject_reason')) {
   db.exec('ALTER TABLE works ADD COLUMN reject_reason TEXT');
 }
+if (!workColumns.includes('parent_work_id')) db.exec('ALTER TABLE works ADD COLUMN parent_work_id INTEGER');
+if (!workColumns.includes('version')) db.exec('ALTER TABLE works ADD COLUMN version INTEGER DEFAULT 1');
+db.exec(`CREATE TABLE IF NOT EXISTS work_reviews (id INTEGER PRIMARY KEY AUTOINCREMENT, work_id INTEGER NOT NULL UNIQUE, reviewer_id INTEGER NOT NULL, comment TEXT, suggestion TEXT, problem_discovery INTEGER NOT NULL, solution_design INTEGER NOT NULL, hands_on INTEGER NOT NULL, data_analysis INTEGER NOT NULL, presentation INTEGER NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(work_id) REFERENCES works(id) ON DELETE CASCADE, FOREIGN KEY(reviewer_id) REFERENCES users(id)); CREATE TABLE IF NOT EXISTS growth_records (id INTEGER PRIMARY KEY AUTOINCREMENT, student_id INTEGER NOT NULL, event_type TEXT NOT NULL DEFAULT 'teacher', description TEXT NOT NULL, recorded_by INTEGER, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(student_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY(recorded_by) REFERENCES users(id));`);
 
 const schoolColumns = db.prepare('PRAGMA table_info(schools)').all().map((c) => c.name);
 if (!schoolColumns.includes('description')) {

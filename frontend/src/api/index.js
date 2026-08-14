@@ -60,6 +60,8 @@ export const workAPI = {
   detail: (id) => client.get(`/works/${id}`),
   delete: (id) => client.delete(`/works/${id}`),
   reject: (id, reason) => client.post(`/works/${id}/reject`, { reason }),
+  pendingTasks: () => client.get('/works/pending-tasks'),
+  review: (id, data) => client.post(`/works/${id}/review`, data),
 };
 
 export const archiveAPI = {
@@ -69,6 +71,7 @@ export const archiveAPI = {
   getReflections: () => client.get('/archives/reflection'),
   submitReflection: (data) => client.post('/archives/reflection', data),
   submitEvaluation: (data) => client.post('/archives/evaluation', data),
+  addGrowthRecord: (data) => client.post('/archives/growth-records', data),
 };
 
 export const aiAPI = {
