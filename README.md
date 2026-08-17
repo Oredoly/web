@@ -47,9 +47,9 @@
 ```bash
 cd backend
 npm install
-cp .env.example .env    # 编辑 .env 配置环境变量
-npm run db:init          # 初始化数据库（含默认测试数据）
-npm run dev              # 开发模式启动（nodemon 热重载）
+Copy-Item .env.example .env
+npm run db:init
+npm run dev
 ```
 
 后端 API 服务默认运行在 `http://localhost:3000`，API 前缀为 `/api`。
@@ -59,7 +59,7 @@ npm run dev              # 开发模式启动（nodemon 热重载）
 ```bash
 cd frontend
 npm install
-npm run dev              # Vite 开发服务器启动
+npm run dev
 ```
 
 前端开发服务器默认运行在 `http://localhost:5173`，会自动代理 API 请求到后端。
