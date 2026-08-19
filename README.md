@@ -1,6 +1,6 @@
 # PBL 科创育人平台
 
-面向“大中小贯通科创育人”项目的 PBL（项目式学习）本地数字化管理平台。平台围绕学校、班级、用户、课程、作品与成长档案，提供学生选课和作品提交、教师与导师管理、成长记录、反思日志及规则式学习助手等功能。
+面向“大中小贯通科创育人”项目的 PBL（项目式学习）本地数字化管理平台。平台围绕学校、班级、用户、课程、作品与成长档案，提供学生选课和作品提交、教师与导师管理、成长记录、反思日志、规则式学习助手及用户反馈闭环等功能。
 
 > 当前项目仅用于本地运行，尚未配置服务器部署。
 
@@ -31,13 +31,17 @@ project/
 │   ├── app.js                  # Express API 入口
 │   ├── config/database.js      # SQLite 连接与轻量迁移
 │   ├── controllers/            # 业务控制器
+│   ├── services/               # 反馈等领域服务
+│   ├── constants/              # 状态、类型与权限白名单
 │   ├── routes/                 # API 路由
 │   ├── middleware/             # JWT 鉴权和上传处理
 │   ├── helpers/                # 公共辅助逻辑
 │   ├── database/
 │   │   ├── schema.sql          # 数据库表结构
 │   │   └── init.js             # 数据库初始化脚本
-│   └── uploads/                # 本地上传文件（不提交到 Git）
+│   ├── uploads/                # 本地上传文件（不提交到 Git）
+│   ├── private_uploads/        # 需要鉴权下载的反馈附件
+│   └── test/                   # Node.js 自动化测试
 ├── frontend/
 │   ├── index.html              # HTML 入口
 │   ├── vite.config.js          # Vite 配置
@@ -81,6 +85,7 @@ Copy-Item .env.example .env
 | `UPLOAD_PATH` | 否 | `uploads` | 相对于 `backend` 的上传目录 |
 | `CORS_ORIGIN` | 否 | `http://localhost:5173` | 允许访问 API 的前端来源 |
 | `API_PREFIX` | 否 | `/api` | API 路由前缀 |
+| `DB_PATH` | 否 | `database/pbl_platform.db` | SQLite 路径；自动化测试会覆盖为临时数据库 |
 
 本地 `.env` 示例：
 
@@ -91,6 +96,7 @@ JWT_SECRET=replace_with_a_long_random_string
 UPLOAD_PATH=./uploads
 CORS_ORIGIN=http://localhost:5173
 API_PREFIX=/api
+DB_PATH=./database/pbl_platform.db
 ```
 
 `SESSION_SECRET` 和 `DB_HOST`、`DB_PORT`、`DB_USER`、`DB_PASSWORD`、`DB_NAME` 不被当前 JWT + SQLite 实现读取。
@@ -153,6 +159,7 @@ npm run dev
 | --- | --- |
 | `npm run dev` | 使用 nodemon 启动本地开发服务 |
 | `npm start` | 使用 Node.js 启动服务 |
+| `npm test` | 使用 Node.js 内置测试框架执行后端测试 |
 | `npm run db:init` | 在数据库不存在时创建数据库和测试数据 |
 | `npm run db:reset` | 删除并重建本地数据库，会清空数据 |
 
@@ -176,6 +183,8 @@ npm run dev
 | 学生 `student` | 注册、选课、上传作品、反思日志、个人成长档案 |
 | 新媒体 `media` | 预留角色，暂无独立功能入口 |
 
+所有已登录角色均可提交反馈、查看自己的反馈、追加说明和确认处理结果。管理员可查看全部反馈、设置优先级和状态、填写处理结果，并添加仅管理员可见的内部备注。
+
 ## 当前前端页面
 
 | 路径 | 页面 |
@@ -196,6 +205,10 @@ npm run dev
 | `/works/:id` | 作品详情 |
 | `/archives` | 成长档案 |
 | `/archives/reflection` | 反思日志 |
+| `/feedback` | 我的反馈 |
+| `/feedback/new` | 提交反馈 |
+| `/feedback/:id` | 反馈详情与沟通记录 |
+| `/feedback/manage` | 管理员反馈管理 |
 
 前端目前存在指向 `/dashboard/schools/add` 和 `/students/import` 的按钮，但 `App.jsx` 尚未注册对应页面路由。这两项属于待完成的前端迁移功能，不应视为当前可用页面。
 
@@ -209,7 +222,23 @@ npm run dev
 | 学生 | `/api/students` | 用户、学校、班级和批量导入 |
 | 作品 | `/api/works` | 上传、查看、批改和版本管理 |
 | 档案 | `/api/archives` | 成长档案、反思、评价和成长记录 |
+| 反馈 | `/api/feedback` | 提交、列表、详情、回复、状态、优先级、统计和私有附件 |
 | 健康检查 | `/api/health` | 服务状态 |
+
+## 用户反馈机制
+
+反馈模块提供以下 MVP 能力：
+
+- 用户提交功能建议、程序错误、使用咨询、内容问题或其他反馈
+- 用户查看自己的反馈和完整公开沟通记录
+- 管理员查看、筛选并处理全部反馈
+- 状态流转：待处理、处理中、待用户补充、已处理、已关闭、无效或重复
+- 管理员设置低、普通、高、紧急优先级
+- 管理员公开回复和仅管理员可见的内部备注
+- 用户确认解决或申请重新处理
+- 最多上传 3 个 PNG、JPG、WEBP 或 PDF 附件，单个不超过 10 MB
+
+反馈附件保存在 `backend/private_uploads/feedback`，不通过 Express 静态目录公开。只有反馈提交人和管理员可以通过鉴权接口下载附件。
 
 ## 规则式学习助手
 
@@ -234,6 +263,7 @@ npm run dev
 - SQLite WAL 文件：`backend/database/pbl_platform.db-wal`
 - SQLite 共享内存文件：`backend/database/pbl_platform.db-shm`
 - 上传文件：`backend/uploads/`
+- 私有反馈附件：`backend/private_uploads/feedback/`
 - 环境变量：`backend/.env`
 
 以上内容均被 Git 忽略。数据库的 `-wal` 和 `-shm` 文件可能包含运行状态或尚未检查点的数据，不应在服务运行时单独删除。
@@ -245,7 +275,7 @@ npm run dev
 - `/dashboard/schools/add` 与 `/students/import` 前端路由尚未实现。
 - 学习助手为关键词规则匹配，不是真实生成式 AI。
 - 前端 ESLint 当前仍有未处理的问题。
-- 项目尚无自动化测试和 CI。
+- 反馈服务已有权限、内部备注隔离、状态流转和统计测试；其他业务模块仍缺少自动化测试，项目尚无 CI。
 - 后端仍保留早期 EJS 页面、静态资源和部分未使用依赖。
 
 ## License

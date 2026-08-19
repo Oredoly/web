@@ -52,7 +52,8 @@ index.html
 └── src/main.jsx
     └── src/App.jsx
         ├── api/          # Axios 客户端与模块 API
-        ├── components/   # 布局和公共组件
+        ├── components/   # 布局、反馈等公共组件
+        ├── constants/    # 反馈状态、类型和优先级字典
         ├── pages/        # 页面组件
         └── store/        # 认证状态
 ```
@@ -67,6 +68,10 @@ index.html
 - `/students`、`/students/:id`
 - `/works`、`/works/upload`、`/works/:id`
 - `/archives`、`/archives/reflection`
+- `/feedback`、`/feedback/new`、`/feedback/:id`
+- `/feedback/manage`（仅管理员）
+
+反馈页面支持提交、筛选、分页、公开回复、私有附件下载、用户确认、重新处理以及管理员状态、优先级、处理结果和内部备注。
 
 `/dashboard/schools/add` 和 `/students/import` 暂无对应的 React 路由，虽然部分按钮仍会导航到这两个地址。
 
@@ -74,5 +79,5 @@ index.html
 
 - API 地址尚未通过环境变量配置。
 - ESLint 当前仍有未处理的 Hooks 和未使用导入问题。
-- 尚无前端自动化测试。
+- 尚无前端自动化测试；反馈服务的后端测试位于 `backend/test`。
 - `src/assets/vite.svg`、`public/icons.svg` 等模板资源目前未被页面使用。
