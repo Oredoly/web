@@ -34,6 +34,21 @@ if (!userColumns.includes('profile')) {
   db.exec('ALTER TABLE users ADD COLUMN profile TEXT');
 }
 
+const taskColumns = db.prepare('PRAGMA table_info(tasks)').all().map((c) => c.name);
+if (!taskColumns.includes('deadline')) db.exec('ALTER TABLE tasks ADD COLUMN deadline DATETIME');
+db.exec(`CREATE TABLE IF NOT EXISTS lesson_progress (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  student_id INTEGER NOT NULL,
+  lesson_id INTEGER NOT NULL,
+  progress INTEGER DEFAULT 0 CHECK(progress BETWEEN 0 AND 100),
+  last_position INTEGER DEFAULT 0,
+  completed_at DATETIME,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(student_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY(lesson_id) REFERENCES lessons(id) ON DELETE CASCADE,
+  UNIQUE(student_id, lesson_id)
+);`);
+
 // 反馈模块兼容迁移：应用启动时为已有数据库补齐表和索引。
 db.exec(`
   CREATE TABLE IF NOT EXISTS feedbacks (

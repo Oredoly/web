@@ -55,11 +55,11 @@ export default function WorkUpload() {
           <Form.Item name="title" label="作品名称" rules={[{ required: true, message: '请输入作品名称' }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="description" label="作品描述"><Input.TextArea rows={3} /></Form.Item>
+          <Form.Item name="description" label="成果内容（文字或附件至少填写一种）"><Input.TextArea rows={3} /></Form.Item>
           <Form.Item name="enrollment_id" label="关联课程">
             <Select placeholder="选择课程" options={courses} />
           </Form.Item>
-          <Form.Item label="上传文件" required>
+          <Form.Item label="上传文件（可选）">
             <Upload beforeUpload={(f) => { setFile(f); return false; }} maxCount={1} onRemove={() => setFile(null)}>
               <Button icon={<UploadOutlined />}>选择文件</Button>
             </Upload>

@@ -31,6 +31,12 @@ export const courseAPI = {
   }),
   enroll: (courseId, studentIds) => client.post(`/courses/${courseId}/enroll`, { student_ids: studentIds }),
   studentEnroll: (courseId) => client.post('/courses/enroll', { course_id: courseId }),
+  updateProgress: (courseId, data) => client.post(`/courses/${courseId}/progress`, data),
+};
+
+export const taskAPI = {
+  list: (params) => client.get('/tasks', { params }),
+  detail: (id) => client.get(`/tasks/${id}`),
 };
 
 export const studentAPI = {

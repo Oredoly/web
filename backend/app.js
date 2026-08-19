@@ -52,6 +52,7 @@ app.use('/uploads', express.static(UPLOAD_ROOT, {
 app.use(`${API_PREFIX}/auth`, require('./routes/auth'));
 app.use(`${API_PREFIX}/dashboard`, require('./routes/dashboard'));
 app.use(`${API_PREFIX}/courses`, require('./routes/courses'));
+app.use(`${API_PREFIX}/tasks`, require('./routes/tasks'));
 app.use(`${API_PREFIX}/students`, require('./routes/students'));
 app.use(`${API_PREFIX}/works`, require('./routes/works'));
 app.use(`${API_PREFIX}/archives`, require('./routes/archives'));

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Descriptions, Table, Button, Tag, Tabs, Form, Input, Modal, Space, Typography, message } from 'antd';
+import { Card, Descriptions, Table, Button, Tag, Tabs, Form, Input, Modal, Space, Typography, message, Progress, List, Select } from 'antd';
 import { ArrowLeftOutlined, PlusOutlined } from '@ant-design/icons';
 import { courseAPI } from '../../api';
 import { useAuth } from '../../store/AuthContext';
@@ -17,6 +17,8 @@ export default function CourseDetail() {
   const [lessons, setLessons] = useState([]);
   const [resources, setResources] = useState([]);
   const [enrollments, setEnrollments] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [progress, setProgress] = useState(0);
   const [lessonModal, setLessonModal] = useState(false);
   const [taskModal, setTaskModal] = useState(false);
   const [activeLesson, setActiveLesson] = useState(null);
@@ -30,6 +32,8 @@ export default function CourseDetail() {
       setLessons(res.lessons || []);
       setResources(res.resources || []);
       setEnrollments(res.enrollments || []);
+      setTasks(res.tasks || []);
+      setProgress(res.progress || 0);
     } catch { message.error('加载失败'); }
   };
 
@@ -84,6 +88,7 @@ export default function CourseDetail() {
             >
               {lesson.description && <p>{lesson.description}</p>}
               {lesson.duration && <Tag>{lesson.duration} 分钟</Tag>}
+              {tasks.filter((task) => task.lesson_id === lesson.id).map((task) => <div key={task.id} style={{ marginTop: 8 }}><a onClick={() => navigate(`/tasks/${task.id}`)}>{task.title}</a>{task.deadline && <Tag style={{ marginLeft: 8 }}>截止 {task.deadline}</Tag>}</div>)}
             </Card>
           ))}
         </div>
@@ -126,6 +131,7 @@ export default function CourseDetail() {
         <Title level={4} style={{ margin: 0 }}>{course.title}</Title>
         {isStudent && !isEnrolled && <Button type="primary" onClick={handleStudentEnroll}>📝 选修此课</Button>}
         {isStudent && isEnrolled && <Tag color="green">已选修</Tag>}
+        {isStudent && isEnrolled && <Button onClick={() => navigate(`/courses/${id}/learn`)}>开始学习</Button>}
       </Space>
 
       <Card style={{ marginBottom: 16 }}>
@@ -138,6 +144,7 @@ export default function CourseDetail() {
           <Descriptions.Item label="总课时">{course.total_hours || '—'}</Descriptions.Item>
         </Descriptions>
         {course.description && <p style={{ marginTop: 12 }}>{course.description}</p>}
+        {isStudent && <Progress percent={Number(progress)} status={progress === 100 ? 'success' : 'active'} />}
       </Card>
 
       <Tabs items={tabItems} />
@@ -156,9 +163,10 @@ export default function CourseDetail() {
         <Form form={taskForm} layout="vertical" onFinish={handleAddTask}>
           <Form.Item name="title" label="任务名称" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="description" label="描述"><Input.TextArea rows={2} /></Form.Item>
-          <Form.Item name="task_type" label="任务类型">
-            <select style={{ width: '100%', padding: '4px 8px' }}><option value="inquiry">探究</option><option value="practice">实践</option><option value="discussion">讨论</option></select>
+          <Form.Item name="task_type" label="任务类型" initialValue="inquiry">
+            <Select options={[['inquiry', '调研'], ['experiment', '实验'], ['creation', '创作'], ['reflection', '反思'], ['presentation', '展示']].map(([value, label]) => ({ value, label }))} />
           </Form.Item>
+          <Form.Item name="deadline" label="截止时间"><Input type="datetime-local" /></Form.Item>
         </Form>
       </Modal>
     </div>
