@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider, App as AntApp } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { AuthProvider } from './store/AuthContext';
+import NotificationProvider from './store/NotificationProvider';
 import AppLayout from './components/AppLayout';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
@@ -34,7 +35,8 @@ function App() {
       <AntApp>
         <AuthProvider>
           <BrowserRouter>
-            <Routes>
+            <NotificationProvider>
+              <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/" element={<AppLayout />}>
@@ -58,7 +60,8 @@ function App() {
                 <Route path="feedback/manage" element={<FeedbackManage />} />
                 <Route path="feedback/:id" element={<FeedbackDetail />} />
               </Route>
-            </Routes>
+              </Routes>
+            </NotificationProvider>
           </BrowserRouter>
         </AuthProvider>
       </AntApp>

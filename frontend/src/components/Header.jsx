@@ -2,6 +2,7 @@ import { Layout, Dropdown, Space, Avatar, Button, Tag } from 'antd';
 import { UserOutlined, LogoutOutlined, MessageOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
+import NotificationBell from './notifications/NotificationBell';
 
 const { Header } = Layout;
 
@@ -33,6 +34,7 @@ export default function HeaderBar() {
       borderBottom: '1px solid #f0f0f0', height: 56
     }}>
       <Space size="middle">
+        <NotificationBell />
         <Button
           type="text"
           icon={<MessageOutlined />}
