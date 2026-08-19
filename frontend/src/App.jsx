@@ -18,6 +18,9 @@ import WorkUpload from './pages/works/Upload';
 import ArchiveIndex from './pages/archives/Index';
 import Reflection from './pages/archives/Reflection';
 import AIAssistant from './pages/dashboard/AI';
+import FeedbackList from './pages/feedback/List';
+import FeedbackForm from './pages/feedback/Form';
+import FeedbackDetail from './pages/feedback/Detail';
 
 function App() {
   return (
@@ -49,6 +52,9 @@ function App() {
                 <Route path="works/:id" element={<WorkDetail />} />
                 <Route path="archives" element={<ArchiveIndex />} />
                 <Route path="archives/reflection" element={<Reflection />} />
+                <Route path="feedback" element={<FeedbackList />} />
+                <Route path="feedback/new" element={<FeedbackForm />} />
+                <Route path="feedback/:id" element={<FeedbackDetail />} />
               </Route>
             </Routes>
           </BrowserRouter>
