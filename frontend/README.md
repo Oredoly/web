@@ -52,10 +52,11 @@ index.html
 └── src/main.jsx
     └── src/App.jsx
         ├── api/          # Axios 客户端与模块 API
-        ├── components/   # 布局、反馈等公共组件
-        ├── constants/    # 反馈状态、类型和优先级字典
+        ├── components/   # 布局、反馈、通知等公共组件
+        ├── constants/    # 反馈与通知字典
+        ├── hooks/        # 通知等共享状态 Hooks
         ├── pages/        # 页面组件
-        └── store/        # 认证状态
+        └── store/        # 认证与通知状态
 ```
 
 ## 当前页面路由
@@ -70,8 +71,11 @@ index.html
 - `/archives`、`/archives/reflection`
 - `/feedback`、`/feedback/new`、`/feedback/:id`
 - `/feedback/manage`（仅管理员）
+- `/notifications`、`/notifications/:id`
 
 反馈页面支持提交、筛选、分页、公开回复、私有附件下载、用户确认、重新处理以及管理员状态、优先级、处理结果和内部备注。
+
+通知功能对所有已登录角色开放。顶部铃铛每 60 秒更新未读数，窗口重新获得焦点时也会刷新；展开铃铛可查看最近通知。通知中心支持阅读状态、分类和级别筛选，以及全部已读、清理已读、单条隐藏和已读/未读切换。当前通知仅通过站内轮询获取，不包含浏览器推送、邮件、短信、WebSocket 或 SSE。
 
 `/dashboard/schools/add` 和 `/students/import` 暂无对应的 React 路由，虽然部分按钮仍会导航到这两个地址。
 
@@ -79,5 +83,5 @@ index.html
 
 - API 地址尚未通过环境变量配置。
 - ESLint 当前仍有未处理的 Hooks 和未使用导入问题。
-- 尚无前端自动化测试；反馈服务的后端测试位于 `backend/test`。
+- 尚无前端自动化测试；反馈与通知服务的后端测试位于 `backend/test`。
 - `src/assets/vite.svg`、`public/icons.svg` 等模板资源目前未被页面使用。
