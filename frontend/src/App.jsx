@@ -23,6 +23,8 @@ import FeedbackList from './pages/feedback/List';
 import FeedbackForm from './pages/feedback/Form';
 import FeedbackDetail from './pages/feedback/Detail';
 import FeedbackManage from './pages/feedback/Manage';
+import NotificationList from './pages/notifications/List';
+import NotificationDetail from './pages/notifications/Detail';
 
 function App() {
   return (
@@ -59,6 +61,8 @@ function App() {
                 <Route path="feedback/new" element={<FeedbackForm />} />
                 <Route path="feedback/manage" element={<FeedbackManage />} />
                 <Route path="feedback/:id" element={<FeedbackDetail />} />
+                <Route path="notifications" element={<NotificationList />} />
+                <Route path="notifications/:id" element={<NotificationDetail />} />
               </Route>
               </Routes>
             </NotificationProvider>
