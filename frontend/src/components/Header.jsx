@@ -1,6 +1,6 @@
-import { Layout, Dropdown, Space, Avatar, Tag } from 'antd';
-import { UserOutlined, LogoutOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { Layout, Dropdown, Space, Avatar, Button, Tag } from 'antd';
+import { UserOutlined, LogoutOutlined, MessageOutlined } from '@ant-design/icons';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
 
 const { Header } = Layout;
@@ -17,6 +17,7 @@ const roleMap = {
 export default function HeaderBar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     logout();
@@ -31,15 +32,24 @@ export default function HeaderBar() {
       alignItems: 'center', justifyContent: 'flex-end',
       borderBottom: '1px solid #f0f0f0', height: 56
     }}>
-      <Dropdown menu={{
-        items: [{ key: 'logout', icon: <LogoutOutlined />, label: '退出登录', onClick: handleLogout }]
-      }}>
-        <Space style={{ cursor: 'pointer' }}>
-          <Avatar size="small" icon={<UserOutlined />} />
-          <span style={{ fontWeight: 500 }}>{user?.real_name}</span>
-          <Tag color={roleInfo.color}>{roleInfo.label}</Tag>
-        </Space>
-      </Dropdown>
+      <Space size="middle">
+        <Button
+          type="text"
+          icon={<MessageOutlined />}
+          onClick={() => navigate('/feedback/new', { state: { from: location.pathname } })}
+        >
+          意见反馈
+        </Button>
+        <Dropdown menu={{
+          items: [{ key: 'logout', icon: <LogoutOutlined />, label: '退出登录', onClick: handleLogout }]
+        }}>
+          <Space style={{ cursor: 'pointer' }}>
+            <Avatar size="small" icon={<UserOutlined />} />
+            <span style={{ fontWeight: 500 }}>{user?.real_name}</span>
+            <Tag color={roleInfo.color}>{roleInfo.label}</Tag>
+          </Space>
+        </Dropdown>
+      </Space>
     </Header>
   );
 }
