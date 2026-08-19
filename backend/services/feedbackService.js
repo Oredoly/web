@@ -272,6 +272,9 @@ function changeStatus(user, id, nextStatus) {
   if (!FEEDBACK_STATUSES.includes(nextStatus)) {
     throw new FeedbackError('无效的反馈状态');
   }
+  if (nextStatus === 'resolved') {
+    throw new FeedbackError('标记为已处理时必须填写处理结果');
+  }
   if (feedback.status === nextStatus) return feedback;
   if (!STATUS_TRANSITIONS[feedback.status]?.includes(nextStatus)) {
     throw new FeedbackError(`不能从“${FEEDBACK_LABELS.statuses[feedback.status]}”变更为“${FEEDBACK_LABELS.statuses[nextStatus]}”`);

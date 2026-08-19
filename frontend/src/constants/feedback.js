@@ -37,3 +37,12 @@ export const feedbackTypeOptions = Object.entries(feedbackTypes).map(([value, la
 export const feedbackModuleOptions = Object.entries(feedbackModules).map(([value, label]) => ({ value, label }));
 export const feedbackStatusOptions = Object.entries(feedbackStatuses).map(([value, item]) => ({ value, label: item.label }));
 export const feedbackPriorityOptions = Object.entries(feedbackPriorities).map(([value, item]) => ({ value, label: item.label }));
+
+export const feedbackStatusTransitions = {
+  pending: ['processing', 'waiting_user', 'rejected'],
+  processing: ['waiting_user', 'rejected'],
+  waiting_user: ['processing', 'rejected'],
+  resolved: ['closed', 'processing'],
+  closed: ['processing'],
+  rejected: ['processing'],
+};

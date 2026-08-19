@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Button, Card, Descriptions, Input, List, Modal, Space, Spin, Typography, message } from 'antd';
+import { Button, Card, Descriptions, Input, List, Modal, Select, Space, Spin, Typography, message } from 'antd';
 import { ArrowLeftOutlined, DownloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { feedbackAPI } from '../../api';
@@ -8,7 +8,14 @@ import FeedbackMessageForm from '../../components/feedback/FeedbackMessageForm';
 import FeedbackPriorityTag from '../../components/feedback/FeedbackPriorityTag';
 import FeedbackStatusTag from '../../components/feedback/FeedbackStatusTag';
 import FeedbackTimeline from '../../components/feedback/FeedbackTimeline';
-import { feedbackModules, feedbackTypes } from '../../constants/feedback';
+import {
+  feedbackModules,
+  feedbackPriorities,
+  feedbackPriorityOptions,
+  feedbackStatuses,
+  feedbackStatusTransitions,
+  feedbackTypes,
+} from '../../constants/feedback';
 import { useAuth } from '../../store/AuthContext';
 
 const { Title, Paragraph, Text } = Typography;
@@ -22,6 +29,8 @@ export default function FeedbackDetail() {
   const [actionLoading, setActionLoading] = useState(false);
   const [reopenOpen, setReopenOpen] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
+  const [resolveOpen, setResolveOpen] = useState(false);
+  const [resolution, setResolution] = useState('');
 
   const load = () => feedbackAPI.detail(id).then((response) => setData(response.data));
 
@@ -63,6 +72,10 @@ export default function FeedbackDetail() {
   const isOwner = feedback.user_id === user?.id;
   const canReply = user?.role === 'admin' || !['closed', 'rejected'].includes(feedback.status);
   const canReopen = isOwner && ['resolved', 'closed', 'rejected'].includes(feedback.status);
+  const nextStatusOptions = (feedbackStatusTransitions[feedback.status] || []).map((value) => ({
+    value,
+    label: feedbackStatuses[value]?.label || value,
+  }));
 
   return (
     <div>
@@ -130,6 +143,49 @@ export default function FeedbackDetail() {
         </Space>
       </Card>
 
+      {user?.role === 'admin' && (
+        <Card title="管理员处理" style={{ marginTop: 16 }}>
+          <Space wrap style={{ marginBottom: 20 }}>
+            <span>优先级：</span>
+            <Select
+              value={feedback.priority}
+              options={feedbackPriorityOptions}
+              style={{ width: 120 }}
+              onChange={async (priority) => {
+                try {
+                  await runAction(
+                    () => feedbackAPI.updatePriority(id, priority),
+                    `优先级已设为${feedbackPriorities[priority]?.label || priority}`,
+                  );
+                } catch { /* API 拦截器统一提示 */ }
+              }}
+            />
+            <span>变更状态：</span>
+            <Select
+              placeholder="选择下一状态"
+              options={nextStatusOptions}
+              style={{ width: 160 }}
+              onChange={async (status) => {
+                try {
+                  await runAction(
+                    () => feedbackAPI.updateStatus(id, status),
+                    `状态已更新为${feedbackStatuses[status]?.label || status}`,
+                  );
+                } catch { /* API 拦截器统一提示 */ }
+              }}
+            />
+            {!['closed', 'rejected'].includes(feedback.status) && (
+              <Button type="primary" onClick={() => setResolveOpen(true)}>填写处理结果</Button>
+            )}
+          </Space>
+          <FeedbackMessageForm
+            internal
+            loading={actionLoading}
+            onSubmit={(content) => runAction(() => feedbackAPI.addInternalNote(id, content), '内部备注已保存')}
+          />
+        </Card>
+      )}
+
       <Modal
         title="申请重新处理"
         open={reopenOpen}
@@ -143,6 +199,30 @@ export default function FeedbackDetail() {
         }}
       >
         <Input.TextArea rows={4} maxLength={2000} value={reopenReason} onChange={(event) => setReopenReason(event.target.value)} />
+      </Modal>
+
+      <Modal
+        title="填写处理结果"
+        open={resolveOpen}
+        confirmLoading={actionLoading}
+        onCancel={() => setResolveOpen(false)}
+        onOk={async () => {
+          if (!resolution.trim()) return message.warning('请填写处理结果');
+          try {
+            await runAction(() => feedbackAPI.resolve(id, resolution), '反馈已标记为已处理');
+            setResolveOpen(false);
+            setResolution('');
+          } catch { /* API 拦截器统一提示 */ }
+        }}
+      >
+        <Input.TextArea
+          rows={5}
+          maxLength={5000}
+          showCount
+          value={resolution}
+          onChange={(event) => setResolution(event.target.value)}
+          placeholder="说明处理方式、结果或建议"
+        />
       </Modal>
     </div>
   );

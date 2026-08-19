@@ -21,6 +21,7 @@ import AIAssistant from './pages/dashboard/AI';
 import FeedbackList from './pages/feedback/List';
 import FeedbackForm from './pages/feedback/Form';
 import FeedbackDetail from './pages/feedback/Detail';
+import FeedbackManage from './pages/feedback/Manage';
 
 function App() {
   return (
@@ -54,6 +55,7 @@ function App() {
                 <Route path="archives/reflection" element={<Reflection />} />
                 <Route path="feedback" element={<FeedbackList />} />
                 <Route path="feedback/new" element={<FeedbackForm />} />
+                <Route path="feedback/manage" element={<FeedbackManage />} />
                 <Route path="feedback/:id" element={<FeedbackDetail />} />
               </Route>
             </Routes>
