@@ -55,6 +55,7 @@ app.use(`${API_PREFIX}/courses`, require('./routes/courses'));
 app.use(`${API_PREFIX}/students`, require('./routes/students'));
 app.use(`${API_PREFIX}/works`, require('./routes/works'));
 app.use(`${API_PREFIX}/archives`, require('./routes/archives'));
+app.use(`${API_PREFIX}/feedback`, require('./routes/feedback'));
 
 // 健康检查
 app.get(`${API_PREFIX}/health`, (req, res) => {
