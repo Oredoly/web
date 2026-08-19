@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Row, Col, Card, Statistic, Table, Tag, List, Typography, Button, Spin } from 'antd';
-import { BookOutlined, TeamOutlined, FileTextOutlined, BankOutlined, PlusOutlined } from '@ant-design/icons';
+import { Row, Col, Card, Statistic, Table, Tag, List, Typography, Button, Space, Spin } from 'antd';
+import { BookOutlined, TeamOutlined, FileTextOutlined, BankOutlined, MessageOutlined, PlusOutlined } from '@ant-design/icons';
 import { dashboardAPI } from '../../api';
 import { useAuth } from '../../store/AuthContext';
 
@@ -52,6 +52,21 @@ export default function Dashboard() {
       </Card>
 
       <Row gutter={16}>
+        {user?.role === 'admin' && data.feedbackStats && (
+          <Col span={24} style={{ marginBottom: 16 }}>
+            <Card
+              title={<Space><MessageOutlined />用户反馈</Space>}
+              extra={<Button type="link" onClick={() => navigate('/feedback/manage')}>进入反馈管理</Button>}
+            >
+              <Row gutter={16}>
+                <Col xs={8}><Statistic title="待处理" value={data.feedbackStats.pending || 0} /></Col>
+                <Col xs={8}><Statistic title="处理中" value={data.feedbackStats.processing || 0} /></Col>
+                <Col xs={8}><Statistic title="紧急未结" value={data.feedbackStats.urgent || 0} valueStyle={{ color: data.feedbackStats.urgent ? '#cf1322' : undefined }} /></Col>
+              </Row>
+            </Card>
+          </Col>
+        )}
+
         {/* 管理员：学校列表 */}
         {user?.role === 'admin' && data.schools && (
           <Col span={24}>

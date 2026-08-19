@@ -26,13 +26,45 @@ export default function Login() {
 
   return (
     <div style={{
-      minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center',
-      background: 'linear-gradient(135deg, #1a73e8 0%, #1557b0 100%)'
+      minHeight: '100vh',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      position: 'relative',
+      overflow: 'hidden'
     }}>
-      <Card style={{ width: 400, borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>
+      <div style={{
+        position: 'absolute',
+        inset: -20,
+        background: "url('/images/beihang_building.jpg') center/cover no-repeat",
+        filter: 'blur(8px) brightness(0.35) saturate(1.2)',
+        zIndex: 0
+      }} />
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'linear-gradient(135deg, rgba(13,21,38,0.4) 0%, rgba(26,42,74,0.3) 50%, rgba(26,69,128,0.3) 100%)',
+        zIndex: 0
+      }} />
+      <Card
+        style={{
+          position: 'relative',
+          zIndex: 1,
+          width: 480,
+          maxWidth: '95vw',
+          borderRadius: 12,
+          boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+        }}
+        styles={{ body: { padding: 40 } }}
+      >
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <Title level={2} style={{ marginBottom: 4 }}>🚀 PBL 科创育人平台</Title>
-          <Text type="secondary">大中小贯通科创育人数字化平台</Text>
+          <img
+            src="/images/beihang_logo_black.png"
+            alt="北京航空航天大学"
+            style={{ height: 52, width: 'auto', opacity: 0.9, marginBottom: 12 }}
+          />
+          <Title level={2} style={{ marginBottom: 4 }}>PBL 科创育人平台</Title>
+          <Text type="secondary">大中小贯通 · 项目式学习数字化平台</Text>
         </div>
         <Form onFinish={onFinish} size="large">
           <Form.Item name="real_name" rules={[{ required: true, message: '请输入姓名' }]}>

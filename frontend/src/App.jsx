@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider, App as AntApp } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { AuthProvider } from './store/AuthContext';
+import NotificationProvider from './store/NotificationProvider';
 import AppLayout from './components/AppLayout';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
@@ -18,6 +19,12 @@ import WorkUpload from './pages/works/Upload';
 import ArchiveIndex from './pages/archives/Index';
 import Reflection from './pages/archives/Reflection';
 import AIAssistant from './pages/dashboard/AI';
+import FeedbackList from './pages/feedback/List';
+import FeedbackForm from './pages/feedback/Form';
+import FeedbackDetail from './pages/feedback/Detail';
+import FeedbackManage from './pages/feedback/Manage';
+import NotificationList from './pages/notifications/List';
+import NotificationDetail from './pages/notifications/Detail';
 
 function App() {
   return (
@@ -30,7 +37,8 @@ function App() {
       <AntApp>
         <AuthProvider>
           <BrowserRouter>
-            <Routes>
+            <NotificationProvider>
+              <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/" element={<AppLayout />}>
@@ -49,8 +57,15 @@ function App() {
                 <Route path="works/:id" element={<WorkDetail />} />
                 <Route path="archives" element={<ArchiveIndex />} />
                 <Route path="archives/reflection" element={<Reflection />} />
+                <Route path="feedback" element={<FeedbackList />} />
+                <Route path="feedback/new" element={<FeedbackForm />} />
+                <Route path="feedback/manage" element={<FeedbackManage />} />
+                <Route path="feedback/:id" element={<FeedbackDetail />} />
+                <Route path="notifications" element={<NotificationList />} />
+                <Route path="notifications/:id" element={<NotificationDetail />} />
               </Route>
-            </Routes>
+              </Routes>
+            </NotificationProvider>
           </BrowserRouter>
         </AuthProvider>
       </AntApp>

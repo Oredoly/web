@@ -45,6 +45,14 @@ exports.index = (req, res) => {
         FROM schools s
         ORDER BY s.name
       `).all();
+      viewData.feedbackStats = db.prepare(`
+        SELECT
+          COUNT(*) AS total,
+          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending,
+          SUM(CASE WHEN status = 'processing' THEN 1 ELSE 0 END) AS processing,
+          SUM(CASE WHEN priority = 'urgent' AND status NOT IN ('closed', 'rejected') THEN 1 ELSE 0 END) AS urgent
+        FROM feedbacks
+      `).get();
     }
 
     // === 教师/导师端：显示负责的课程和学生进度 ===
