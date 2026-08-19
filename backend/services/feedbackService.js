@@ -7,6 +7,9 @@ const {
   STATUS_TRANSITIONS,
   FEEDBACK_LABELS,
 } = require('../constants/feedback');
+const notificationService = require('./notificationService');
+
+const { NOTIFICATION_EVENTS } = notificationService;
 
 class FeedbackError extends Error {
   constructor(message, status = 400, code = 'FEEDBACK_INVALID') {
@@ -53,10 +56,31 @@ function assertAccess(user, feedback) {
 }
 
 function addSystemMessage(feedbackId, senderId, content) {
-  db.prepare(`
+  const result = db.prepare(`
     INSERT INTO feedback_messages (feedback_id, sender_id, message_type, content, is_internal)
     VALUES (?, ?, 'system', ?, 0)
   `).run(feedbackId, senderId || null, content);
+  return Number(result.lastInsertRowid);
+}
+
+function notifyFeedbackOwner(feedback, payload) {
+  return notificationService.safeCreateForUsers({
+    category: 'feedback',
+    businessType: 'feedback',
+    businessId: feedback.id,
+    actionUrl: `/feedback/${feedback.id}`,
+    ...payload,
+  }, [feedback.user_id]);
+}
+
+function notifyFeedbackAdmins(feedback, payload) {
+  return notificationService.safeCreateForUsers({
+    category: 'feedback',
+    businessType: 'feedback',
+    businessId: feedback.id,
+    actionUrl: `/feedback/${feedback.id}`,
+    ...payload,
+  }, notificationService.userIdsByRoles(['admin']));
 }
 
 function formatFeedbackNo(id) {
@@ -89,7 +113,7 @@ function create(user, data, files = []) {
     throw new FeedbackError('反馈描述至少需要10个字');
   }
 
-  return db.transaction(() => {
+  const feedback = db.transaction(() => {
     const result = db.prepare(`
       INSERT INTO feedbacks (
         user_id, type, module, title, description, contact,
@@ -130,6 +154,16 @@ function create(user, data, files = []) {
     addSystemMessage(feedbackId, user.id, '反馈已提交');
     return getFeedbackRow(feedbackId);
   })();
+  notifyFeedbackAdmins(feedback, {
+    eventKey: NOTIFICATION_EVENTS.FEEDBACK_SUBMITTED,
+    dedupeKey: `feedback.submitted:${feedback.id}`,
+    title: '收到新的用户反馈',
+    summary: `${feedback.feedback_no} · ${feedback.title}`,
+    content: `用户“${feedback.user_name || '未知用户'}”提交了反馈：${feedback.title}`,
+    level: 'important',
+    createdBy: user.id,
+  });
+  return feedback;
 }
 
 function listMine(user, query = {}) {
@@ -250,7 +284,21 @@ function addPublicMessage(user, id, rawContent) {
     db.prepare('UPDATE feedbacks SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(feedback.id);
     return inserted;
   })();
-  return { id: Number(result.lastInsertRowid) };
+  const messageId = Number(result.lastInsertRowid);
+  const notification = {
+    eventKey: user.role === 'admin'
+      ? NOTIFICATION_EVENTS.FEEDBACK_REPLIED
+      : NOTIFICATION_EVENTS.FEEDBACK_USER_REPLIED,
+    dedupeKey: `feedback.message:${messageId}`,
+    title: user.role === 'admin' ? '你的反馈有新回复' : '用户回复了反馈',
+    summary: `${feedback.feedback_no} · ${feedback.title}`,
+    content,
+    level: 'normal',
+    createdBy: user.id,
+  };
+  if (user.role === 'admin') notifyFeedbackOwner(feedback, notification);
+  else notifyFeedbackAdmins(feedback, notification);
+  return { id: messageId };
 }
 
 function addInternalNote(user, id, rawContent) {
@@ -280,7 +328,7 @@ function changeStatus(user, id, nextStatus) {
     throw new FeedbackError(`不能从“${FEEDBACK_LABELS.statuses[feedback.status]}”变更为“${FEEDBACK_LABELS.statuses[nextStatus]}”`);
   }
 
-  db.transaction(() => {
+  const messageId = db.transaction(() => {
     db.prepare(`
       UPDATE feedbacks
       SET status = ?, updated_at = CURRENT_TIMESTAMP,
@@ -288,13 +336,23 @@ function changeStatus(user, id, nextStatus) {
           closed_at = CASE WHEN ? = 'closed' THEN CURRENT_TIMESTAMP ELSE NULL END
       WHERE id = ?
     `).run(nextStatus, nextStatus, nextStatus, feedback.id);
-    addSystemMessage(
+    return addSystemMessage(
       feedback.id,
       user.id,
       `状态由“${FEEDBACK_LABELS.statuses[feedback.status]}”变更为“${FEEDBACK_LABELS.statuses[nextStatus]}”`,
     );
   })();
-  return getFeedbackRow(feedback.id);
+  const updated = getFeedbackRow(feedback.id);
+  notifyFeedbackOwner(updated, {
+    eventKey: NOTIFICATION_EVENTS.FEEDBACK_STATUS_CHANGED,
+    dedupeKey: `feedback.status:${messageId}`,
+    title: '反馈状态已更新',
+    summary: `${updated.feedback_no} · ${updated.title}`,
+    content: `反馈状态已更新为“${FEEDBACK_LABELS.statuses[nextStatus]}”。`,
+    level: ['rejected', 'closed'].includes(nextStatus) ? 'important' : 'normal',
+    createdBy: user.id,
+  });
+  return updated;
 }
 
 function changePriority(user, id, nextPriority) {
@@ -326,22 +384,33 @@ function resolve(user, id, rawResolution) {
     throw new FeedbackError('当前状态不能直接标记为已处理');
   }
 
-  db.transaction(() => {
+  const replyId = db.transaction(() => {
     db.prepare(`
       UPDATE feedbacks
       SET resolution = ?, status = 'resolved', resolved_at = CURRENT_TIMESTAMP,
           closed_at = NULL, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(resolution, feedback.id);
-    db.prepare(`
+    const reply = db.prepare(`
       INSERT INTO feedback_messages (feedback_id, sender_id, message_type, content, is_internal)
       VALUES (?, ?, 'reply', ?, 0)
     `).run(feedback.id, user.id, `处理结果：${resolution}`);
     if (feedback.status !== 'resolved') {
       addSystemMessage(feedback.id, user.id, '反馈已处理，等待用户确认');
     }
+    return Number(reply.lastInsertRowid);
   })();
-  return getFeedbackRow(feedback.id);
+  const updated = getFeedbackRow(feedback.id);
+  notifyFeedbackOwner(updated, {
+    eventKey: NOTIFICATION_EVENTS.FEEDBACK_REPLIED,
+    dedupeKey: `feedback.resolved:${replyId}`,
+    title: '你的反馈已处理',
+    summary: `${updated.feedback_no} · ${updated.title}`,
+    content: resolution,
+    level: 'important',
+    createdBy: user.id,
+  });
+  return updated;
 }
 
 function confirmResolved(user, id) {
@@ -353,15 +422,25 @@ function confirmResolved(user, id) {
     throw new FeedbackError('只有已处理的反馈可以确认解决');
   }
 
-  db.transaction(() => {
+  const messageId = db.transaction(() => {
     db.prepare(`
       UPDATE feedbacks
       SET status = 'closed', closed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(feedback.id);
-    addSystemMessage(feedback.id, user.id, '用户已确认问题解决');
+    return addSystemMessage(feedback.id, user.id, '用户已确认问题解决');
   })();
-  return getFeedbackRow(feedback.id);
+  const updated = getFeedbackRow(feedback.id);
+  notifyFeedbackAdmins(updated, {
+    eventKey: NOTIFICATION_EVENTS.FEEDBACK_CLOSED,
+    dedupeKey: `feedback.closed:${messageId}`,
+    title: '用户已确认反馈解决',
+    summary: `${updated.feedback_no} · ${updated.title}`,
+    content: '用户已确认问题解决，本次反馈已关闭。',
+    level: 'normal',
+    createdBy: user.id,
+  });
+  return updated;
 }
 
 function reopen(user, id, rawReason) {
@@ -373,19 +452,30 @@ function reopen(user, id, rawReason) {
   const reason = cleanText(rawReason, 2000);
   if (!reason) throw new FeedbackError('请说明重新打开的原因');
 
-  db.transaction(() => {
+  const replyId = db.transaction(() => {
     db.prepare(`
       UPDATE feedbacks
       SET status = 'processing', closed_at = NULL, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(feedback.id);
-    db.prepare(`
+    const reply = db.prepare(`
       INSERT INTO feedback_messages (feedback_id, sender_id, message_type, content, is_internal)
       VALUES (?, ?, 'reply', ?, 0)
     `).run(feedback.id, user.id, `请求重新处理：${reason}`);
     addSystemMessage(feedback.id, user.id, '反馈已重新打开');
+    return Number(reply.lastInsertRowid);
   })();
-  return getFeedbackRow(feedback.id);
+  const updated = getFeedbackRow(feedback.id);
+  notifyFeedbackAdmins(updated, {
+    eventKey: NOTIFICATION_EVENTS.FEEDBACK_REOPENED,
+    dedupeKey: `feedback.reopened:${replyId}`,
+    title: '用户重新打开了反馈',
+    summary: `${updated.feedback_no} · ${updated.title}`,
+    content: reason,
+    level: 'important',
+    createdBy: user.id,
+  });
+  return updated;
 }
 
 function stats(user) {
