@@ -1,16 +1,78 @@
-# React + Vite
+# PBL 科创育人平台前端
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+本目录是 PBL 科创育人平台的 React 单页应用，使用 Vite 开发和构建。
 
-Currently, two official plugins are available:
+## 技术栈
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React 19
+- Vite 8
+- Ant Design 6
+- React Router 7
+- Axios
+- Day.js
+- ESLint 10
 
-## React Compiler
+## 环境要求
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Node.js 22.12 或更高版本
+- npm 10 或更高版本
 
-## Expanding the ESLint configuration
+## 安装
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```powershell
+cd frontend
+npm ci
+```
+
+## 本地运行
+
+请先在另一个终端启动 `backend` 服务，然后执行：
+
+```powershell
+npm run dev
+```
+
+前端默认运行在 `http://localhost:5173`。
+
+当前没有配置 Vite API 代理。Axios 在 `src/api/client.js` 中直接请求 `http://localhost:3000/api`，因此本地后端应运行在 3000 端口。
+
+## 命令
+
+| 命令 | 说明 |
+| --- | --- |
+| `npm run dev` | 启动开发服务器 |
+| `npm run lint` | 执行 ESLint 检查 |
+| `npm run build` | 构建生产文件到 `dist` |
+| `npm run preview` | 本地预览构建结果 |
+
+## 入口与目录
+
+```text
+index.html
+└── src/main.jsx
+    └── src/App.jsx
+        ├── api/          # Axios 客户端与模块 API
+        ├── components/   # 布局和公共组件
+        ├── pages/        # 页面组件
+        └── store/        # 认证状态
+```
+
+## 当前页面路由
+
+路由定义以 `src/App.jsx` 为准，主要包括：
+
+- `/login`、`/register`
+- `/dashboard`、`/dashboard/schools/:id`、`/dashboard/ai`
+- `/courses`、`/courses/create`、`/courses/:id`、`/courses/:id/edit`
+- `/students`、`/students/:id`
+- `/works`、`/works/upload`、`/works/:id`
+- `/archives`、`/archives/reflection`
+
+`/dashboard/schools/add` 和 `/students/import` 暂无对应的 React 路由，虽然部分按钮仍会导航到这两个地址。
+
+## 已知限制
+
+- API 地址尚未通过环境变量配置。
+- ESLint 当前仍有未处理的 Hooks 和未使用导入问题。
+- 尚无前端自动化测试。
+- `src/assets/vite.svg`、`public/icons.svg` 等模板资源目前未被页面使用。
