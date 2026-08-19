@@ -84,3 +84,34 @@ export const aiAPI = {
   getCourses: () => client.get('/dashboard/ai/courses'),
   ask: (question, course_id) => client.post('/dashboard/ai/ask', { question, course_id }),
 };
+
+export const feedbackAPI = {
+  options: () => client.get('/feedback/options'),
+  create: (formData) => client.post('/feedback', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  mine: (params) => client.get('/feedback/mine', { params }),
+  detail: (id) => client.get(`/feedback/${id}`),
+  reply: (id, content) => client.post(`/feedback/${id}/messages`, { content }),
+  confirm: (id) => client.post(`/feedback/${id}/confirm`),
+  reopen: (id, reason) => client.post(`/feedback/${id}/reopen`, { reason }),
+  manageList: (params) => client.get('/feedback/manage/list', { params }),
+  stats: () => client.get('/feedback/manage/stats'),
+  updateStatus: (id, status) => client.patch(`/feedback/${id}/status`, { status }),
+  updatePriority: (id, priority) => client.patch(`/feedback/${id}/priority`, { priority }),
+  addInternalNote: (id, content) => client.post(`/feedback/${id}/internal-notes`, { content }),
+  resolve: (id, resolution) => client.post(`/feedback/${id}/resolve`, { resolution }),
+  downloadAttachment: (id) => client.get(`/feedback/attachments/${id}`, { responseType: 'blob' }),
+};
+
+export const notificationAPI = {
+  list: (params) => client.get('/notifications', { params }),
+  recent: (limit = 10) => client.get('/notifications/recent', { params: { limit } }),
+  unreadCount: () => client.get('/notifications/unread-count'),
+  detail: (id) => client.get(`/notifications/${id}`),
+  markRead: (id) => client.patch(`/notifications/${id}/read`),
+  markUnread: (id) => client.patch(`/notifications/${id}/unread`),
+  markAllRead: () => client.post('/notifications/read-all'),
+  hide: (id) => client.patch(`/notifications/${id}/hide`),
+  hideRead: () => client.post('/notifications/hide-read'),
+};

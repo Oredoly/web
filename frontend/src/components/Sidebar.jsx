@@ -9,6 +9,8 @@ import {
   FormOutlined,
   CheckSquareOutlined,
   RobotOutlined,
+  MessageOutlined,
+  BellOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../store/AuthContext';
 
@@ -22,6 +24,8 @@ const menuItems = {
     { key: '/works', icon: <FileTextOutlined />, label: '作品管理' },
     { key: '/archives', icon: <FolderOpenOutlined />, label: '成长档案' },
     { key: '/dashboard/ai', icon: <RobotOutlined />, label: 'AI 助手' },
+    { key: '/feedback/manage', icon: <MessageOutlined />, label: '反馈管理' },
+    { key: '/notifications', icon: <BellOutlined />, label: '通知中心' },
   ],
   executive_mentor: [
     { key: '/dashboard', icon: <DashboardOutlined />, label: '工作台' },
@@ -30,6 +34,8 @@ const menuItems = {
     { key: '/works', icon: <FileTextOutlined />, label: '作品管理' },
     { key: '/archives', icon: <FolderOpenOutlined />, label: '成长档案' },
     { key: '/dashboard/ai', icon: <RobotOutlined />, label: 'AI 助手' },
+    { key: '/feedback', icon: <MessageOutlined />, label: '帮助与反馈' },
+    { key: '/notifications', icon: <BellOutlined />, label: '通知中心' },
   ],
   academic_mentor: [
     { key: '/dashboard', icon: <DashboardOutlined />, label: '工作台' },
@@ -38,6 +44,8 @@ const menuItems = {
     { key: '/works', icon: <FileTextOutlined />, label: '作品管理' },
     { key: '/archives', icon: <FolderOpenOutlined />, label: '成长档案' },
     { key: '/dashboard/ai', icon: <RobotOutlined />, label: 'AI 助手' },
+    { key: '/feedback', icon: <MessageOutlined />, label: '帮助与反馈' },
+    { key: '/notifications', icon: <BellOutlined />, label: '通知中心' },
   ],
   teacher: [
     { key: '/dashboard', icon: <DashboardOutlined />, label: '工作台' },
@@ -46,6 +54,8 @@ const menuItems = {
     { key: '/works', icon: <FileTextOutlined />, label: '作品管理' },
     { key: '/archives', icon: <FolderOpenOutlined />, label: '成长档案' },
     { key: '/dashboard/ai', icon: <RobotOutlined />, label: 'AI 助手' },
+    { key: '/feedback', icon: <MessageOutlined />, label: '帮助与反馈' },
+    { key: '/notifications', icon: <BellOutlined />, label: '通知中心' },
   ],
   student: [
     { key: '/dashboard', icon: <DashboardOutlined />, label: '我的工作台' },
@@ -56,6 +66,13 @@ const menuItems = {
     { key: '/archives', icon: <FolderOpenOutlined />, label: '我的档案' },
     { key: '/archives/reflection', icon: <FormOutlined />, label: '反思日志' },
     { key: '/dashboard/ai', icon: <RobotOutlined />, label: 'AI 助手' },
+    { key: '/feedback', icon: <MessageOutlined />, label: '帮助与反馈' },
+    { key: '/notifications', icon: <BellOutlined />, label: '通知中心' },
+  ],
+  media: [
+    { key: '/dashboard', icon: <DashboardOutlined />, label: '工作台' },
+    { key: '/feedback', icon: <MessageOutlined />, label: '帮助与反馈' },
+    { key: '/notifications', icon: <BellOutlined />, label: '通知中心' },
   ],
 };
 
@@ -66,7 +83,11 @@ export default function Sidebar() {
 
   const items = menuItems[user?.role] || menuItems.student;
 
-  const selectedKey = '/' + location.pathname.split('/').slice(1, 3).join('/');
+  const selectedKey = location.pathname.startsWith('/feedback')
+    ? (user?.role === 'admin' ? '/feedback/manage' : '/feedback')
+    : location.pathname.startsWith('/notifications')
+      ? '/notifications'
+      : '/' + location.pathname.split('/').slice(1, 3).join('/');
 
   return (
     <Sider width={200} style={{ background: '#001529' }}>

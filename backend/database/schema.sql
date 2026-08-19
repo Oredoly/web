@@ -298,6 +298,96 @@ CREATE TABLE IF NOT EXISTS media_assets (
   FOREIGN KEY (upload_by) REFERENCES users(id)
 );
 
+-- 17. 用户反馈
+CREATE TABLE IF NOT EXISTS feedbacks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  feedback_no TEXT UNIQUE,
+  user_id INTEGER,
+  type TEXT NOT NULL CHECK(type IN ('suggestion','bug','question','content','other')),
+  module TEXT CHECK(module IS NULL OR module IN ('auth','dashboard','courses','students','works','archives','assistant','other')),
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  contact TEXT,
+  allow_contact INTEGER NOT NULL DEFAULT 1 CHECK(allow_contact IN (0, 1)),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','processing','waiting_user','resolved','closed','rejected')),
+  priority TEXT NOT NULL DEFAULT 'normal' CHECK(priority IN ('low','normal','high','urgent')),
+  resolution TEXT,
+  source_path TEXT,
+  client_info TEXT,
+  satisfaction INTEGER CHECK(satisfaction IS NULL OR satisfaction BETWEEN 1 AND 5),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  resolved_at DATETIME,
+  closed_at DATETIME,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS feedback_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  feedback_id INTEGER NOT NULL,
+  sender_id INTEGER,
+  message_type TEXT NOT NULL DEFAULT 'reply' CHECK(message_type IN ('reply','note','system')),
+  content TEXT NOT NULL,
+  is_internal INTEGER NOT NULL DEFAULT 0 CHECK(is_internal IN (0, 1)),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (feedback_id) REFERENCES feedbacks(id) ON DELETE CASCADE,
+  FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS feedback_attachments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  feedback_id INTEGER NOT NULL,
+  message_id INTEGER,
+  original_name TEXT NOT NULL,
+  stored_name TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  mime_type TEXT NOT NULL,
+  file_size INTEGER NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (feedback_id) REFERENCES feedbacks(id) ON DELETE CASCADE,
+  FOREIGN KEY (message_id) REFERENCES feedback_messages(id) ON DELETE SET NULL
+);
+
+-- 18. 站内通知
+CREATE TABLE IF NOT EXISTS notifications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_key TEXT NOT NULL,
+  dedupe_key TEXT UNIQUE,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  summary TEXT,
+  category TEXT NOT NULL CHECK(category IN ('feedback','course','task','work','archive','account','system','security')),
+  level TEXT NOT NULL DEFAULT 'normal' CHECK(level IN ('normal','important','urgent','security')),
+  status TEXT NOT NULL DEFAULT 'published' CHECK(status IN ('draft','scheduled','published','withdrawn')),
+  action_url TEXT,
+  business_type TEXT,
+  business_id INTEGER,
+  target_type TEXT NOT NULL DEFAULT 'users',
+  target_config TEXT,
+  created_by INTEGER,
+  is_forced INTEGER NOT NULL DEFAULT 0 CHECK(is_forced IN (0, 1)),
+  published_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  withdrawn_at DATETIME,
+  withdrawn_by INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (withdrawn_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS user_notifications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  notification_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  is_read INTEGER NOT NULL DEFAULT 0 CHECK(is_read IN (0, 1)),
+  read_at DATETIME,
+  is_hidden INTEGER NOT NULL DEFAULT 0 CHECK(is_hidden IN (0, 1)),
+  received_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(notification_id, user_id),
+  FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_school ON users(school_id);
@@ -309,3 +399,11 @@ CREATE INDEX IF NOT EXISTS idx_enrollments_course ON enrollments(course_id);
 CREATE INDEX IF NOT EXISTS idx_works_student ON works(student_id);
 CREATE INDEX IF NOT EXISTS idx_reflections_student ON reflections(student_id);
 CREATE INDEX IF NOT EXISTS idx_evaluations_student ON evaluations(student_id);
+CREATE INDEX IF NOT EXISTS idx_feedbacks_user ON feedbacks(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_feedbacks_status ON feedbacks(status, priority, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_feedback_messages_feedback ON feedback_messages(feedback_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_feedback_attachments_feedback ON feedback_attachments(feedback_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_event ON notifications(event_key, business_type, business_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_published ON notifications(status, published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_user_notifications_user ON user_notifications(user_id, is_hidden, received_at DESC);
+CREATE INDEX IF NOT EXISTS idx_user_notifications_unread ON user_notifications(user_id, is_read, is_hidden);

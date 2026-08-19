@@ -1,96 +1,285 @@
 # PBL 科创育人平台
 
-面向「大中小贯通科创育人」项目的 PBL（项目式学习）数字化管理平台。平台以学校、班级、用户、课程、作品和成长档案为核心，提供学生选课与作品提交、教师/导师管理、管理员用户与学校管理、成长档案导出、AI 学习助手等功能。
+面向“大中小贯通科创育人”项目的 PBL（项目式学习）本地数字化管理平台。平台围绕学校、班级、用户、课程、作品与成长档案，提供学生选课和作品提交、教师与导师管理、成长记录、反思日志、规则式学习助手、用户反馈闭环及站内通知等功能。
 
-## 技术架构
+> 当前项目仅用于本地运行，尚未配置服务器部署。
 
-本项目采用前后端分离架构：
+## 技术栈
 
-| 层级 | 技术栈 |
+| 层级 | 技术 |
 | --- | --- |
-| **前端** | React 19 + Vite 8 + Ant Design 6 + React Router 7 + Axios |
-| **后端** | Node.js + Express 4（RESTful API） |
-| **数据库** | SQLite + better-sqlite3 |
-| **认证** | JWT（JSON Web Token） |
+| 前端 | React 19、Vite 8、Ant Design 6、React Router 7、Axios、Day.js |
+| 后端 | Node.js、Express 4、REST API |
+| 数据库 | SQLite、better-sqlite3 |
+| 认证 | JWT、bcryptjs |
+| 文件上传 | Multer、本地文件系统 |
 
-## 功能概览
+前端使用 JavaScript/JSX；后端使用 CommonJS。`backend/views` 与 `backend/public` 是早期 EJS 版本遗留目录，不属于当前 React SPA 的主要运行链路。
 
-- **用户认证**：使用「姓名 + 密码」登录/注册，支持 JWT Token 鉴权，注册时必须选择学校与班级。
-- **课程管理**：创建/编辑课程、课时、任务、课程资源，学生可自主选课（最多 3 门）。
-- **作品管理**：学生上传作品，教师/导师管理本校或全部学生作品，管理员可打回或删除作品。
-- **成长档案**：按「学校 → 班级 → 身份 → 姓名」树形展示，支持单人或按学校/班级批量导出。
-- **用户管理**：管理员按树形结构管理用户，支持添加、编辑、删除、批量导入、批量删除。
-- **学校管理**：管理员可在工作台添加/删除学校，进入学校详情后管理班级。
-- **反思日志**：学生可填写反思日志，管理员和教师可查看。
-- **AI 学习助手**：内置智能问答入口，可关联课程上下文，辅助学生学习。
+## 环境要求
 
-## 角色权限
+- Node.js 22.12 或更高版本
+- npm 10 或更高版本
 
-| 角色 | 主要权限 |
-| --- | --- |
-| 管理员（admin） | 平台全部功能：学校/班级/用户管理、课程管理、作品打回/删除、档案导出 |
-| 执行导师（executive_mentor） | 管理所有学生，管理自己创建的课程 |
-| 学术导师（academic_mentor） | 管理所有学生，管理自己创建的课程 |
-| 教师（teacher） | 管理本校学生，可对本校学生增删改；查看课程；查看公开发布课程对应的作品 |
-| 学生（student） | 注册、选课、上传作品、填写反思日志、查看自己的成长档案 |
-| 新媒体（media） | 预留角色，当前无专属管理入口 |
+Node.js 18 不满足当前依赖要求：Vite 8 要求 Node.js 20.19+，`better-sqlite3` 13 要求 Node.js 22+。建议统一使用 Node.js 22 LTS 或更高版本。
 
-## 快速开始
+## 项目结构
 
-### 环境要求
+```text
+project/
+├── backend/
+│   ├── app.js                  # Express API 入口
+│   ├── config/database.js      # SQLite 连接与轻量迁移
+│   ├── controllers/            # 业务控制器
+│   ├── services/               # 反馈、通知等领域服务
+│   ├── constants/              # 状态、类型与权限白名单
+│   ├── routes/                 # API 路由
+│   ├── middleware/             # JWT 鉴权和上传处理
+│   ├── helpers/                # 公共辅助逻辑
+│   ├── database/
+│   │   ├── schema.sql          # 数据库表结构
+│   │   └── init.js             # 数据库初始化脚本
+│   ├── uploads/                # 本地上传文件（不提交到 Git）
+│   ├── private_uploads/        # 需要鉴权下载的反馈附件
+│   └── test/                   # Node.js 自动化测试
+├── frontend/
+│   ├── index.html              # HTML 入口
+│   ├── vite.config.js          # Vite 配置
+│   └── src/
+│       ├── main.jsx            # React 入口
+│       ├── App.jsx             # 前端路由
+│       ├── api/                # Axios 请求封装
+│       ├── components/         # 布局、反馈、通知等公共组件
+│       ├── pages/              # 页面组件
+│       ├── hooks/              # 通知等共享状态 Hooks
+│       └── store/              # 认证与通知状态
+├── 网站使用手册.docx
+└── README.md
+```
 
-- Node.js 18 或更高版本
-- npm
+根目录的 `package.json` 不是应用启动入口。当前项目应分别在 `backend` 和 `frontend` 目录安装依赖、执行命令。
 
-### 1. 启动后端
+## 本地安装
 
-```bash
+### 1. 安装后端依赖
+
+```powershell
 cd backend
-npm install
+npm ci
+```
+
+### 2. 配置后端环境变量
+
+可以复制模板后按需调整：
+
+```powershell
 Copy-Item .env.example .env
+```
+
+当前后端实际读取以下变量：
+
+| 变量 | 是否必需 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `PORT` | 否 | `3000` | 后端端口 |
+| `NODE_ENV` | 否 | 未设置 | 推荐本地设为 `development` |
+| `JWT_SECRET` | 生产环境必需 | 开发时随机生成 | JWT 签名密钥；本地也建议固定设置，避免重启后 Token 失效 |
+| `UPLOAD_PATH` | 否 | `uploads` | 相对于 `backend` 的上传目录 |
+| `CORS_ORIGIN` | 否 | `http://localhost:5173` | 允许访问 API 的前端来源 |
+| `API_PREFIX` | 否 | `/api` | API 路由前缀 |
+| `DB_PATH` | 否 | `database/pbl_platform.db` | SQLite 路径；自动化测试会覆盖为临时数据库 |
+
+本地 `.env` 示例：
+
+```dotenv
+PORT=3000
+NODE_ENV=development
+JWT_SECRET=replace_with_a_long_random_string
+UPLOAD_PATH=./uploads
+CORS_ORIGIN=http://localhost:5173
+API_PREFIX=/api
+DB_PATH=./database/pbl_platform.db
+```
+
+`SESSION_SECRET` 和 `DB_HOST`、`DB_PORT`、`DB_USER`、`DB_PASSWORD`、`DB_NAME` 不被当前 JWT + SQLite 实现读取。
+
+### 3. 初始化数据库
+
+仅在 `backend/database/pbl_platform.db` 不存在时执行：
+
+```powershell
 npm run db:init
+```
+
+如果数据库已经存在，初始化脚本会退出以保护现有数据。
+
+```powershell
+npm run db:reset
+```
+
+`db:reset` 会删除并重建数据库，清空全部现有数据，仅应在明确需要重置本地测试数据时使用。
+
+### 4. 安装前端依赖
+
+```powershell
+cd ..\frontend
+npm ci
+```
+
+## 本地运行
+
+分别打开两个 PowerShell 终端。
+
+终端一，启动后端：
+
+```powershell
+cd backend
 npm run dev
 ```
 
-后端 API 服务默认运行在 `http://localhost:3000`，API 前缀为 `/api`。
+后端默认地址：
 
-### 2. 启动前端
+- API：`http://localhost:3000/api`
+- 健康检查：`http://localhost:3000/api/health`
 
-```bash
+终端二，启动前端：
+
+```powershell
 cd frontend
-npm install
 npm run dev
 ```
 
-前端开发服务器默认运行在 `http://localhost:5173`，会自动代理 API 请求到后端。
+前端默认地址：`http://localhost:5173`
 
-### 数据库管理
+当前 Vite 配置没有 API 代理。前端在 `frontend/src/api/client.js` 中直接请求 `http://localhost:3000/api`，后端通过 CORS 允许来自 `http://localhost:5173` 的本地请求。
+
+## 常用命令
+
+### 后端
 
 | 命令 | 说明 |
 | --- | --- |
-| `npm run db:init` | 仅在数据库不存在时初始化（含默认测试数据） |
-| `npm run db:reset` | 删除并重建数据库，**会清空所有数据** |
+| `npm run dev` | 使用 nodemon 启动本地开发服务 |
+| `npm start` | 使用 Node.js 启动服务 |
+| `npm test` | 使用 Node.js 内置测试框架执行后端测试 |
+| `npm run db:init` | 在数据库不存在时创建数据库和测试数据 |
+| `npm run db:reset` | 删除并重建本地数据库，会清空数据 |
 
-数据库文件位于 `backend/database/pbl_platform.db`，上传文件默认位于 `backend/uploads/`。
+### 前端
 
-## 环境变量
+| 命令 | 说明 |
+| --- | --- |
+| `npm run dev` | 启动 Vite 开发服务器 |
+| `npm run lint` | 执行 ESLint 检查 |
+| `npm run build` | 构建到 `frontend/dist` |
+| `npm run preview` | 预览构建结果 |
 
-在 `backend/.env` 中配置：
+## 功能与角色
 
-| 变量 | 说明 | 示例 |
+| 角色 | 主要能力 |
+| --- | --- |
+| 管理员 `admin` | 学校、班级和用户管理；课程与作品管理；成长档案 |
+| 执行导师 `executive_mentor` | 学生管理；本人创建课程的管理 |
+| 学术导师 `academic_mentor` | 学生查看与评价；本人创建课程的管理 |
+| 教师 `teacher` | 本校学生管理；作品查看和批改；成长记录 |
+| 学生 `student` | 注册、选课、上传作品、反思日志、个人成长档案 |
+| 新媒体 `media` | 预留角色，暂无独立功能入口 |
+
+所有已登录角色均可提交反馈、查看自己的反馈、追加说明和确认处理结果，也可以通过顶部铃铛和通知中心接收、筛选及管理站内通知。管理员可查看全部反馈、设置优先级和状态、填写处理结果，并添加仅管理员可见的内部备注。
+
+## 当前前端页面
+
+| 路径 | 页面 |
+| --- | --- |
+| `/login` | 登录 |
+| `/register` | 注册 |
+| `/dashboard` | 工作台 |
+| `/dashboard/schools/:id` | 学校详情 |
+| `/dashboard/ai` | 规则式学习助手 |
+| `/courses` | 课程列表 |
+| `/courses/create` | 创建课程 |
+| `/courses/:id` | 课程详情 |
+| `/courses/:id/edit` | 编辑课程 |
+| `/students` | 学生与用户管理 |
+| `/students/:id` | 学生详情 |
+| `/works` | 作品列表 |
+| `/works/upload` | 上传作品 |
+| `/works/:id` | 作品详情 |
+| `/archives` | 成长档案 |
+| `/archives/reflection` | 反思日志 |
+| `/feedback` | 我的反馈 |
+| `/feedback/new` | 提交反馈 |
+| `/feedback/:id` | 反馈详情与沟通记录 |
+| `/feedback/manage` | 管理员反馈管理 |
+| `/notifications` | 通知中心、筛选与批量操作 |
+| `/notifications/:id` | 通知详情 |
+
+前端目前存在指向 `/dashboard/schools/add` 和 `/students/import` 的按钮，但 `App.jsx` 尚未注册对应页面路由。这两项属于待完成的前端迁移功能，不应视为当前可用页面。
+
+## API 概览
+
+| 模块 | 默认前缀 | 说明 |
 | --- | --- | --- |
-| `PORT` | API 服务端口 | `3000` |
-| `JWT_SECRET` | JWT 签名密钥，生产环境**必须**设置 | 长随机字符串 |
-| `UPLOAD_PATH` | 上传文件目录 | `./uploads` |
-| `NODE_ENV` | 运行环境 | `development` / `production` |
-| `CORS_ORIGIN` | 允许的前端跨域来源 | `http://localhost:5173` |
-| `API_PREFIX` | API 路由前缀 | `/api` |
+| 认证 | `/api/auth` | 登录、注册、当前用户、学校和班级 |
+| 工作台 | `/api/dashboard` | 统计、学校管理、学习助手 |
+| 课程 | `/api/courses` | 课程、课时、任务、资源和选课 |
+| 学生 | `/api/students` | 用户、学校、班级和批量导入 |
+| 作品 | `/api/works` | 上传、查看、批改和版本管理 |
+| 档案 | `/api/archives` | 成长档案、反思、评价和成长记录 |
+| 反馈 | `/api/feedback` | 提交、列表、详情、回复、状态、优先级、统计和私有附件 |
+| 通知 | `/api/notifications` | 列表、最近通知、未读数、详情、已读/未读和隐藏操作 |
+| 健康检查 | `/api/health` | 服务状态 |
 
-> ⚠️ 生产环境必须设置独立的 `JWT_SECRET`，并修改所有默认账号密码。
+## 用户反馈机制
 
-## 默认测试账号
+反馈模块提供以下 MVP 能力：
 
-登录使用「姓名 + 密码」：
+- 用户提交功能建议、程序错误、使用咨询、内容问题或其他反馈
+- 用户查看自己的反馈和完整公开沟通记录
+- 管理员查看、筛选并处理全部反馈
+- 状态流转：待处理、处理中、待用户补充、已处理、已关闭、无效或重复
+- 管理员设置低、普通、高、紧急优先级
+- 管理员公开回复和仅管理员可见的内部备注
+- 用户确认解决或申请重新处理
+- 最多上传 3 个 PNG、JPG、WEBP 或 PDF 附件，单个不超过 10 MB
+
+反馈附件保存在 `backend/private_uploads/feedback`，不通过 Express 静态目录公开。只有反馈提交人和管理员可以通过鉴权接口下载附件。
+
+## 站内通知
+
+通知模块当前提供以下 MVP 能力：
+
+- 顶部通知铃铛显示未读数量并展示最近 8 条通知
+- 登录期间每 60 秒刷新未读数量，浏览器窗口重新获得焦点时立即刷新
+- 通知中心支持按阅读状态、分类和级别筛选，并支持分页
+- 支持单条已读/未读、打开详情自动已读、全部已读、隐藏单条和清理已读
+- 收件人只能读取和操作自己的通知；服务端不接受前端指定其他用户
+- 通过唯一幂等键避免同一业务事件重复创建通知
+- 反馈提交、公开回复、状态变化、处理完成、用户确认和重新打开会触发通知
+- 作品提交、重新提交、评审通过、打回修改和删除会触发通知
+
+通知是业务操作成功后的辅助信息。通知写入异常会记录服务端错误，但不会回滚已经成功的反馈或作品操作。当前采用前端轮询，不依赖 WebSocket、SSE 或外部消息服务。
+
+通知 API 均要求 JWT 登录：
+
+| 方法与路径 | 说明 |
+| --- | --- |
+| `GET /api/notifications` | 获取当前用户通知列表 |
+| `GET /api/notifications/recent` | 获取最近通知 |
+| `GET /api/notifications/unread-count` | 获取未读数量 |
+| `GET /api/notifications/:id` | 获取详情并自动标记已读 |
+| `PATCH /api/notifications/:id/read` | 标记已读 |
+| `PATCH /api/notifications/:id/unread` | 标记未读 |
+| `PATCH /api/notifications/:id/hide` | 隐藏单条通知 |
+| `POST /api/notifications/read-all` | 全部标记已读 |
+| `POST /api/notifications/hide-read` | 隐藏全部已读通知 |
+
+## 规则式学习助手
+
+当前“AI 学习助手”尚未连接大语言模型或外部 AI API。后端根据 PBL、月球、无人机、火星、VR 和反思等关键词返回预设内容，并可附带有限的课程上下文。对外介绍时宜称为“规则式学习助手”。
+
+## 默认本地测试账号
+
+数据库初始化脚本会创建以下测试账号：
 
 | 身份 | 姓名 | 密码 |
 | --- | --- | --- |
@@ -99,117 +288,30 @@ npm run dev
 | 教师 | 李老师 | `teacher123` |
 | 学生 | 王小明 | `student123` |
 
-## API 接口
+这些账号仅用于本地开发和演示。若未来部署到服务器，必须删除或修改默认密码，并设置固定、强随机的 `JWT_SECRET`。
 
-| 模块 | 前缀 | 说明 |
-| --- | --- | --- |
-| 认证 | `/api/auth` | 登录、注册、获取当前用户信息 |
-| 工作台 | `/api/dashboard` | 统计概览、学校管理、AI 助手 |
-| 课程 | `/api/courses` | 课程 CRUD、选课、资源管理 |
-| 学生 | `/api/students` | 用户管理、批量导入/删除 |
-| 作品 | `/api/works` | 作品上传、审核、打回/删除 |
-| 档案 | `/api/archives` | 成长档案树、反思日志、批量导出 |
-| 健康检查 | `/api/health` | 服务状态检查 |
+## 本地数据
 
-## 项目目录
+- SQLite 数据库：`backend/database/pbl_platform.db`
+- SQLite WAL 文件：`backend/database/pbl_platform.db-wal`
+- SQLite 共享内存文件：`backend/database/pbl_platform.db-shm`
+- 上传文件：`backend/uploads/`
+- 私有反馈附件：`backend/private_uploads/feedback/`
+- 环境变量：`backend/.env`
 
-```text
-web/
-├── backend/                    # 后端 API 服务
-│   ├── app.js                  # Express 入口，中间件与路由挂载
-│   ├── config/database.js      # SQLite 连接与轻量迁移
-│   ├── controllers/            # 业务控制器
-│   │   ├── authController.js   #   认证（登录/注册/JWT）
-│   │   ├── dashboardController.js  #   工作台与 AI 助手
-│   │   ├── courseController.js #   课程管理
-│   │   ├── studentController.js#   学生/用户管理
-│   │   ├── workController.js   #   作品管理
-│   │   ├── archiveController.js#   成长档案
-│   │   └── aiController.js     #   AI 问答
-│   ├── routes/                 # 路由定义
-│   ├── middleware/              # 鉴权（JWT）与文件上传
-│   ├── helpers/                # 用户树等公共逻辑
-│   ├── database/
-│   │   ├── schema.sql          # 数据库表结构
-│   │   └── init.js             # 数据库初始化脚本
-│   └── uploads/                # 上传文件存储目录
-│
-└── frontend/                   # 前端 SPA 应用
-    ├── index.html              # HTML 入口
-    ├── vite.config.js          # Vite 构建配置
-    └── src/
-        ├── main.jsx            # React 入口
-        ├── App.jsx             # 路由配置
-        ├── api/                # API 请求封装
-        │   ├── client.js       #   Axios 实例（拦截器/Token 注入）
-        │   └── index.js        #   各模块 API 函数
-        ├── components/         # 公共组件
-        │   ├── AppLayout.jsx   #   应用布局（侧边栏+头部）
-        │   ├── Header.jsx      #   顶部导航栏
-        │   └── Sidebar.jsx     #   侧边栏菜单
-        ├── pages/              # 页面组件
-        │   ├── auth/           #   登录/注册
-        │   ├── dashboard/      #   工作台、学校管理、AI 助手
-        │   ├── courses/        #   课程列表、详情、创建/编辑
-        │   ├── students/       #   学生列表、详情
-        │   ├── works/          #   作品列表、详情、上传
-        │   └── archives/       #   成长档案、反思日志
-        └── store/
-            └── AuthContext.jsx #   全局认证状态管理
-```
+以上内容均被 Git 忽略。数据库的 `-wal` 和 `-shm` 文件可能包含运行状态或尚未检查点的数据，不应在服务运行时单独删除。
 
-## 构建部署
+## 已知限制
 
-### 前端构建
-
-```bash
-cd frontend
-npm run build      # 产物输出到 frontend/dist/
-npm run preview    # 本地预览构建产物
-```
-
-### 后端生产启动
-
-```bash
-cd backend
-NODE_ENV=production npm start
-```
+- 当前仅验证本地双进程运行，尚无服务器部署配置。
+- 前端 API 地址仍硬编码为本机后端地址。
+- `/dashboard/schools/add` 与 `/students/import` 前端路由尚未实现。
+- 学习助手为关键词规则匹配，不是真实生成式 AI。
+- 前端 ESLint 当前仍有未处理的问题。
+- 通知目前仅支持站内消息和 60 秒轮询，不含管理员公告编辑、定时发布、邮件、短信、WebSocket/SSE 或移动端推送。
+- 反馈服务和通知服务已有自动化测试；作品等其他业务模块仍缺少完整测试，项目尚无 CI。
+- 后端仍保留早期 EJS 页面、静态资源和部分未使用依赖。
 
 ## License
 
-本项目仅供「大中小贯通科创育人」项目组内部使用。
-  database/init.js       # 初始化脚本
-  uploads/               # 上传文件目录
-```
-
-## 主要路由
-
-| 路由 | 说明 |
-| --- | --- |
-| `/auth/login`、`/auth/register` | 登录、注册 |
-| `/dashboard` | 工作台 |
-| `/dashboard/schools/add`、`/dashboard/schools/:id` | 学校新增与详情 |
-| `/courses` | 课程管理 |
-| `/students` | 学生/用户管理 |
-| `/works` | 作品管理 |
-| `/archives` | 成长档案 |
-| `/archives/reflection` | 反思日志 |
-| `/dashboard/ai` | AI 学习助手 |
-
-## 开源说明
-
-- 当前仓库默认不提交 `.env`、SQLite 数据库文件和上传文件。
-- 如果你公开部署，请先修改默认密码并替换 `SESSION_SECRET`。
-- 当前尚未包含自动化测试；CSRF token 和登录限流也仍建议在上线前补充。
-- 如需指定开源许可证，请在仓库中添加 `LICENSE` 文件。
-
-## 贡献
-
-欢迎通过 Issue 提交问题，通过 Pull Request 提交改进。请保持改动范围聚焦，并同步补充必要的说明。
-
-## 作品管理与成长档案补充（2026-08）
-
-- 作品管理新增学生待办任务、课程筛选、作品版本重交和历史版本查看。
-- 作品详情新增教师评语、修改建议、五维能力评分及通过/需修改状态处理。
-- 成长档案新增五维平均能力展示、系统/教师成长记录，并支持教师通过浏览器打印导出 PDF。
-- 边界处理：仅允许作品本人重交被退回的作品；教师仅可批改、记录本校学生；无批改数据时能力分显示为 0。
+本项目仅供“大中小贯通科创育人”项目组内部使用，仓库目前未包含独立的开源许可证文件。

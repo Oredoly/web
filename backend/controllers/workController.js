@@ -2,6 +2,19 @@ const db = require('../config/database');
 const fs = require('fs');
 const path = require('path');
 const { isStaff, isTeacher } = require('../middleware/auth');
+const notificationService = require('../services/notificationService');
+
+const { NOTIFICATION_EVENTS } = notificationService;
+
+function notifyWorkRecipients(work, payload, recipientIds) {
+  return notificationService.safeCreateForUsers({
+    category: 'work',
+    businessType: 'work',
+    businessId: work.id,
+    actionUrl: payload.actionUrl === undefined ? `/works/${work.id}` : payload.actionUrl,
+    ...payload,
+  }, recipientIds);
+}
 
 function removeUploadedFile(file) {
   if (file && file.path) {
@@ -214,7 +227,27 @@ exports.upload = (req, res) => {
     const workCount = db.prepare('SELECT COUNT(*) count FROM works WHERE student_id=?').get(actualStudentId).count;
     if (workCount % 3 === 0) db.prepare("INSERT INTO growth_records (student_id,event_type,description) VALUES (?,'system',?)").run(actualStudentId, `累计完成 ${workCount} 个作品`);
 
-    res.json({ message: '作品上传成功！', id: insertResult.lastInsertRowid });
+    const workId = Number(insertResult.lastInsertRowid);
+    const courseOwner = enrollment_id ? db.prepare(`
+      SELECT c.created_by
+      FROM enrollments e
+      JOIN courses c ON c.id = e.course_id
+      WHERE e.id = ?
+    `).get(enrollment_id) : null;
+    const resubmitted = Boolean(parentId);
+    notifyWorkRecipients({ id: workId }, {
+      eventKey: resubmitted ? NOTIFICATION_EVENTS.WORK_RESUBMITTED : NOTIFICATION_EVENTS.WORK_SUBMITTED,
+      dedupeKey: `work.submitted:${workId}`,
+      title: resubmitted ? '作品已重新提交' : '作品已提交',
+      summary: `《${title}》${resubmitted ? `第 ${version} 版` : ''}`,
+      content: resubmitted
+        ? `作品《${title}》第 ${version} 版已提交，等待评审。`
+        : `作品《${title}》已提交，等待评审。`,
+      level: resubmitted ? 'important' : 'normal',
+      createdBy: user.id,
+    }, [actualStudentId, courseOwner?.created_by].filter(Boolean));
+
+    res.json({ message: '作品上传成功！', id: workId });
   } catch (err) {
     console.error('上传作品错误:', err);
     removeUploadedFile(req.file);
@@ -263,7 +296,7 @@ exports.detail = (req, res) => {
 exports.delete = (req, res) => {
   try {
     const work = db.prepare(`
-      SELECT w.id, w.student_id, w.file_path, u.school_id as student_school_id
+      SELECT w.id, w.student_id, w.title, w.file_path, u.school_id as student_school_id
       FROM works w
       JOIN users u ON u.id = w.student_id
       WHERE w.id = ?
@@ -285,6 +318,16 @@ exports.delete = (req, res) => {
       try { fs.unlinkSync(work.file_path); } catch (e) { /* 文件可能已删除 */ }
     }
     db.prepare('DELETE FROM works WHERE id = ?').run(req.params.id);
+    notifyWorkRecipients(work, {
+      eventKey: NOTIFICATION_EVENTS.WORK_DELETED,
+      dedupeKey: `work.deleted:${work.id}`,
+      title: '作品已删除',
+      summary: `《${work.title}》`,
+      content: `作品《${work.title}》已被删除。`,
+      level: 'important',
+      actionUrl: null,
+      createdBy: req.user.id,
+    }, [work.student_id]);
     res.json({ message: '作品已删除' });
   } catch (err) {
     console.error('删除作品错误:', err);
@@ -294,15 +337,31 @@ exports.delete = (req, res) => {
 
 exports.reject = (req, res) => {
   try {
-    const work = db.prepare('SELECT id FROM works WHERE id = ?').get(req.params.id);
+    const work = db.prepare('SELECT id, student_id, title FROM works WHERE id = ?').get(req.params.id);
     if (!work) {
       return res.status(400).json({ error: '作品不存在' });
     }
 
     const reason = (req.body.reason || '').trim() || '作品不符合要求，请修改后重新提交';
-    db.prepare(
-      "UPDATE works SET review_status = 'rejected', reject_reason = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
-    ).run(reason, req.params.id);
+    const growthId = db.transaction(() => {
+      db.prepare(
+        "UPDATE works SET review_status = 'rejected', reject_reason = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+      ).run(reason, req.params.id);
+      const growth = db.prepare(
+        "INSERT INTO growth_records (student_id,event_type,description) VALUES (?,'system',?)"
+      ).run(work.student_id, `作品《${work.title}》被打回修改`);
+      return Number(growth.lastInsertRowid);
+    })();
+
+    notifyWorkRecipients(work, {
+      eventKey: NOTIFICATION_EVENTS.WORK_REVIEWED,
+      dedupeKey: `work.reviewed:${work.id}:${growthId}`,
+      title: '作品需要修改',
+      summary: `《${work.title}》评审结果：需修改`,
+      content: reason,
+      level: 'important',
+      createdBy: req.user.id,
+    }, [work.student_id]);
 
     res.json({ message: '作品已打回' });
   } catch (err) {
@@ -318,13 +377,25 @@ exports.review = (req, res) => {
     const keys = ['problem_discovery', 'solution_design', 'hands_on', 'data_analysis', 'presentation'];
     if (keys.some((key) => !Number.isInteger(Number(req.body[key])) || Number(req.body[key]) < 1 || Number(req.body[key]) > 5)) return res.status(400).json({ error: '五项评分均须为1-5的整数' });
     const status = req.body.status === 'rejected' ? 'rejected' : 'approved';
-    db.transaction(() => {
+    const growthId = db.transaction(() => {
       db.prepare(`INSERT INTO work_reviews (work_id,reviewer_id,comment,suggestion,problem_discovery,solution_design,hands_on,data_analysis,presentation)
         VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(work_id) DO UPDATE SET reviewer_id=excluded.reviewer_id,comment=excluded.comment,suggestion=excluded.suggestion,problem_discovery=excluded.problem_discovery,solution_design=excluded.solution_design,hands_on=excluded.hands_on,data_analysis=excluded.data_analysis,presentation=excluded.presentation,updated_at=CURRENT_TIMESTAMP`)
         .run(work.id, req.user.id, req.body.comment || null, req.body.suggestion || null, ...keys.map((key) => Number(req.body[key])));
       db.prepare('UPDATE works SET review_status=?, reject_reason=?, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(status, status === 'rejected' ? (req.body.suggestion || '请修改后重新提交') : null, work.id);
-      db.prepare("INSERT INTO growth_records (student_id,event_type,description) VALUES (?,'system',?)").run(work.student_id, `作品《${work.title}》获得教师批改`);
+      const growth = db.prepare("INSERT INTO growth_records (student_id,event_type,description) VALUES (?,'system',?)").run(work.student_id, `作品《${work.title}》获得教师批改`);
+      return Number(growth.lastInsertRowid);
     })();
+    notifyWorkRecipients(work, {
+      eventKey: NOTIFICATION_EVENTS.WORK_REVIEWED,
+      dedupeKey: `work.reviewed:${work.id}:${growthId}`,
+      title: status === 'approved' ? '作品评审已通过' : '作品需要修改',
+      summary: `《${work.title}》评审结果：${status === 'approved' ? '已通过' : '需修改'}`,
+      content: status === 'approved'
+        ? (req.body.comment || '作品已通过评审。')
+        : (req.body.suggestion || '请根据评审建议修改后重新提交。'),
+      level: status === 'approved' ? 'normal' : 'important',
+      createdBy: req.user.id,
+    }, [work.student_id]);
     res.json({ message: '批改已保存' });
   } catch (err) { console.error(err); res.status(500).json({ error: '保存批改失败' }); }
 };
