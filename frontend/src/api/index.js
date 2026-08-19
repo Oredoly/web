@@ -97,3 +97,15 @@ export const feedbackAPI = {
   resolve: (id, resolution) => client.post(`/feedback/${id}/resolve`, { resolution }),
   downloadAttachment: (id) => client.get(`/feedback/attachments/${id}`, { responseType: 'blob' }),
 };
+
+export const notificationAPI = {
+  list: (params) => client.get('/notifications', { params }),
+  recent: (limit = 10) => client.get('/notifications/recent', { params: { limit } }),
+  unreadCount: () => client.get('/notifications/unread-count'),
+  detail: (id) => client.get(`/notifications/${id}`),
+  markRead: (id) => client.patch(`/notifications/${id}/read`),
+  markUnread: (id) => client.patch(`/notifications/${id}/unread`),
+  markAllRead: () => client.post('/notifications/read-all'),
+  hide: (id) => client.patch(`/notifications/${id}/hide`),
+  hideRead: () => client.post('/notifications/hide-read'),
+};
