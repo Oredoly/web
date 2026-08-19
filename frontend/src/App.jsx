@@ -10,6 +10,9 @@ import SchoolDetail from './pages/dashboard/School';
 import CourseList from './pages/courses/List';
 import CourseDetail from './pages/courses/Detail';
 import CourseForm from './pages/courses/Form';
+import Learning from './pages/courses/Learning';
+import TaskList from './pages/tasks/List';
+import TaskDetail from './pages/tasks/Detail';
 import StudentList from './pages/students/List';
 import StudentDetail from './pages/students/Detail';
 import WorkList from './pages/works/List';
@@ -41,12 +44,15 @@ function App() {
                 <Route path="courses" element={<CourseList />} />
                 <Route path="courses/create" element={<CourseForm />} />
                 <Route path="courses/:id" element={<CourseDetail />} />
+                <Route path="courses/:id/learn" element={<Learning />} />
                 <Route path="courses/:id/edit" element={<CourseForm />} />
                 <Route path="students" element={<StudentList />} />
                 <Route path="students/:id" element={<StudentDetail />} />
                 <Route path="works" element={<WorkList />} />
                 <Route path="works/upload" element={<WorkUpload />} />
                 <Route path="works/:id" element={<WorkDetail />} />
+                <Route path="tasks" element={<TaskList />} />
+                <Route path="tasks/:id" element={<TaskDetail />} />
                 <Route path="archives" element={<ArchiveIndex />} />
                 <Route path="archives/reflection" element={<Reflection />} />
               </Route>

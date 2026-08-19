@@ -107,6 +107,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   task_type TEXT DEFAULT 'inquiry' CHECK(task_type IN ('inquiry','experiment','creation','reflection','presentation')),
   sort_order INTEGER DEFAULT 0,
   require_upload INTEGER DEFAULT 1,
+  deadline DATETIME,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
 );

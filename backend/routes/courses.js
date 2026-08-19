@@ -13,6 +13,7 @@ router.post('/enroll', requireRole('student'), controller.studentEnroll);
 router.get('/', controller.list);
 router.post('/', requireRole('admin', 'executive_mentor', 'academic_mentor'), controller.create);
 router.get('/:id', controller.detail);
+router.post('/:id/progress', requireRole('student'), controller.updateProgress);
 router.put('/:id', requireRole('admin', 'executive_mentor', 'academic_mentor'), controller.update);
 router.delete('/:id', requireRole('admin', 'executive_mentor'), controller.delete);
 

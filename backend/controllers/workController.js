@@ -132,8 +132,8 @@ exports.upload = (req, res) => {
       return res.status(400).json({ error: '管理员不可上传作品' });
     }
 
-    if (!req.file) {
-      return res.status(400).json({ error: '请选择要上传的文件' });
+    if (!req.file && !req.body.description?.trim()) {
+      return res.status(400).json({ error: '请填写成果内容或选择文件' });
     }
 
     const { title, description, enrollment_id, task_id, student_id, parent_work_id } = req.body;
@@ -190,8 +190,8 @@ exports.upload = (req, res) => {
       }
     }
 
-    const ext = path.extname(req.file.originalname).toLowerCase();
-    const displayType = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext) ? 'image' :
+    const ext = req.file ? path.extname(req.file.originalname).toLowerCase() : '';
+    const displayType = !req.file ? 'text' : ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext) ? 'image' :
                         ['.mp4', '.webm'].includes(ext) ? 'video' :
                         ext === '.pdf' ? 'pdf' : 'file';
 
@@ -208,7 +208,7 @@ exports.upload = (req, res) => {
         file_path, file_type, file_size, parent_work_id, version)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(actualStudentId, enrollment_id || null, task_id || null, title,
-          description || null, req.file.path, displayType, req.file.size, parentId, version);
+          description || null, req.file?.path || null, displayType, req.file?.size || null, parentId, version);
 
     db.prepare("INSERT INTO growth_records (student_id,event_type,description) VALUES (?,'system',?)").run(actualStudentId, `提交作品《${title}》`);
     const workCount = db.prepare('SELECT COUNT(*) count FROM works WHERE student_id=?').get(actualStudentId).count;
