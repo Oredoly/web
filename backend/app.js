@@ -1,5 +1,6 @@
 require('dotenv').config();
 const crypto = require('crypto');
+const fs = require('fs');
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -11,11 +12,22 @@ const API_PREFIX = process.env.API_PREFIX || '/api';
 
 // ============================================
 // JWT 密钥
+// 优先读环境变量 JWT_SECRET；否则读取/生成持久化的 .jwt-secret 文件。
+// 避免每次服务重启都随机生成密钥，导致已登录用户的 token 全部失效。
 // ============================================
-if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
-  throw new Error('JWT_SECRET is required in production');
+function getOrCreateJwtSecret() {
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+  const secretFile = path.join(__dirname, '.jwt-secret');
+  try {
+    const existing = fs.readFileSync(secretFile, 'utf8').trim();
+    if (existing) return existing;
+  } catch (e) { /* 文件不存在则创建 */ }
+  const secret = crypto.randomBytes(32).toString('hex');
+  fs.writeFileSync(secretFile, secret, { mode: 0o600 });
+  console.log('🔑 已生成并持久化 JWT 密钥到 .jwt-secret');
+  return secret;
 }
-const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+const JWT_SECRET = getOrCreateJwtSecret();
 app.set('jwt_secret', JWT_SECRET);
 
 // ============================================
@@ -33,6 +45,18 @@ app.use((req, res, next) => {
 });
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+// 响应日志：打印所有 4xx/5xx 响应的状态码和响应体，便于排查 400 等前端报错
+app.use((req, res, next) => {
+  const originalJson = res.json.bind(res);
+  res.json = (body) => {
+    if (res.statusCode >= 400) {
+      console.warn(`[API ${req.method} ${req.originalUrl}] → ${res.statusCode}:`, JSON.stringify(body));
+    }
+    return originalJson(body);
+  };
+  next();
+});
 
 // 静态文件（上传目录）
 app.use('/uploads', express.static(UPLOAD_ROOT, {

@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/dashboardController');
 const aiController = require('../controllers/aiController');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requirePasswordChanged, requireRole } = require('../middleware/auth');
 
 router.use(requireAuth);
+router.use(requirePasswordChanged);
 
 // 仪表盘
 router.get('/', controller.index);

@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/courseController');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requirePasswordChanged, requireRole } = require('../middleware/auth');
 const { uploadResource } = require('../middleware/upload');
 
 router.use(requireAuth);
+router.use(requirePasswordChanged);
 
 // 学生自主选课
 router.post('/enroll', requireRole('student'), controller.studentEnroll);

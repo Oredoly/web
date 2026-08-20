@@ -1,5 +1,5 @@
 import { Layout, Dropdown, Space, Avatar, Button, Tag } from 'antd';
-import { UserOutlined, LogoutOutlined, MessageOutlined } from '@ant-design/icons';
+import { UserOutlined, LogoutOutlined, MessageOutlined, KeyOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
 import NotificationBell from './notifications/NotificationBell';
@@ -43,7 +43,10 @@ export default function HeaderBar() {
           意见反馈
         </Button>
         <Dropdown menu={{
-          items: [{ key: 'logout', icon: <LogoutOutlined />, label: '退出登录', onClick: handleLogout }]
+          items: [
+            { key: 'change-password', icon: <KeyOutlined />, label: '修改密码', onClick: () => navigate('/change-password') },
+            { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', onClick: handleLogout }
+          ]
         }}>
           <Space style={{ cursor: 'pointer' }}>
             <Avatar size="small" icon={<UserOutlined />} />

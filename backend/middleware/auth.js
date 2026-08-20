@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const db = require('../config/database');
 
 const STAFF_ROLES = ['admin', 'executive_mentor', 'academic_mentor', 'teacher'];
 const COURSE_MANAGER_ROLES = ['admin', 'executive_mentor', 'academic_mentor'];
@@ -44,6 +45,22 @@ function requireRole(...roles) {
   };
 }
 
+// 强制修改密码守卫：管理员重置密码后、用户改密成功前，阻止访问业务接口
+function requirePasswordChanged(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ error: '未登录', message: '请先登录' });
+  }
+  try {
+    const row = db.prepare('SELECT force_reset_password FROM users WHERE id = ?').get(req.user.id);
+    if (row && row.force_reset_password === 1) {
+      return res.status(403).json({ error: '请先修改初始密码', code: 'FORCE_RESET' });
+    }
+  } catch (err) {
+    console.error('检查强制改密状态错误:', err);
+  }
+  next();
+}
+
 // 禁止管理员提交反思日志
 function requireNotAdmin(req, res, next) {
   if (req.user && req.user.role === 'admin') {
@@ -63,6 +80,7 @@ function requireReflectionSubmittable(req, res, next) {
 module.exports = {
   requireAuth,
   requireRole,
+  requirePasswordChanged,
   requireNotAdmin,
   requireReflectionSubmittable,
   isStaff,

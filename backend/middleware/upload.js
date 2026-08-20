@@ -87,4 +87,10 @@ const uploadResource = multer({
   limits: { fileSize: 50 * 1024 * 1024 }
 });
 
-module.exports = { uploadWork, uploadResource, UPLOAD_ROOT };
+// 批量导入用：内存存储，接收 .csv / .xlsx / .xls
+const uploadImport = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
+
+module.exports = { uploadWork, uploadResource, uploadImport, UPLOAD_ROOT };
