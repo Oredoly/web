@@ -33,7 +33,12 @@ exports.pendingTasks = (req, res) => {
       e.id AS enrollment_id FROM enrollments e JOIN courses c ON c.id=e.course_id
       JOIN lessons l ON l.course_id=c.id JOIN tasks t ON t.lesson_id=l.id
       WHERE e.student_id=? AND c.status='published' AND t.require_upload=1
-      AND NOT EXISTS (SELECT 1 FROM works w WHERE w.student_id=e.student_id AND w.task_id=t.id)
+      AND (
+        NOT EXISTS (SELECT 1 FROM works w WHERE w.student_id=e.student_id AND w.task_id=t.id)
+        OR (SELECT w.review_status FROM works w
+        WHERE w.student_id=e.student_id AND w.task_id=t.id
+        ORDER BY w.version DESC, w.created_at DESC, w.id DESC LIMIT 1) = 'rejected'
+      )
       ORDER BY t.created_at DESC`).all(req.user.id);
     res.json({ tasks });
   } catch (err) { res.status(500).json({ error: '加载待办任务失败' }); }
