@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/workController');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requirePasswordChanged, requireRole } = require('../middleware/auth');
 const { uploadWork } = require('../middleware/upload');
 
 router.use(requireAuth);
+router.use(requirePasswordChanged);
 
 router.get('/', controller.list);
 router.get('/upload-options', controller.showUpload);

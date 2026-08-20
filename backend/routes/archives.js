@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/archiveController');
-const { requireAuth, requireReflectionSubmittable, requireRole } = require('../middleware/auth');
+const { requireAuth, requirePasswordChanged, requireReflectionSubmittable, requireRole } = require('../middleware/auth');
 
 router.use(requireAuth);
+router.use(requirePasswordChanged);
 
 router.get('/tree', controller.showExport);
 router.get('/generate', controller.generate);
