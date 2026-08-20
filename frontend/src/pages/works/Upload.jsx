@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, Form, Input, Select, Upload, Button, Typography, message, Space } from 'antd';
 import { UploadOutlined, ArrowLeftOutlined } from '@ant-design/icons';
-import { workAPI, courseAPI } from '../../api';
+import { workAPI } from '../../api';
 import { useAuth } from '../../store/AuthContext';
 
 const { Title } = Typography;
@@ -27,11 +27,10 @@ export default function WorkUpload() {
   }, []);
 
   const onFinish = async (values) => {
-    if (!file) { message.error('请选择文件'); return; }
     setLoading(true);
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      if (file) formData.append('file', file);
       formData.append('title', values.title);
       formData.append('description', values.description || '');
       formData.append('enrollment_id', values.enrollment_id || '');
@@ -55,11 +54,11 @@ export default function WorkUpload() {
           <Form.Item name="title" label="作品名称" rules={[{ required: true, message: '请输入作品名称' }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="description" label="作品描述"><Input.TextArea rows={3} /></Form.Item>
+          <Form.Item name="description" label="成果内容（文字或附件至少填写一种）"><Input.TextArea rows={3} /></Form.Item>
           <Form.Item name="enrollment_id" label="关联课程">
             <Select placeholder="选择课程" options={courses} />
           </Form.Item>
-          <Form.Item label="上传文件" required>
+          <Form.Item label="上传文件（可选）">
             <Upload beforeUpload={(f) => { setFile(f); return false; }} maxCount={1} onRemove={() => setFile(null)}>
               <Button icon={<UploadOutlined />}>选择文件</Button>
             </Upload>

@@ -31,7 +31,14 @@ exports.list = (req, res) => {
 
     sql += ' ORDER BY c.updated_at DESC';
 
-    const courses = db.prepare(sql).all(...params);
+    const courses = db.prepare(sql).all(...params).map((course) => {
+      if (req.user.role !== 'student') return { ...course, progress: 0 };
+      const progress = db.prepare(`SELECT COALESCE(ROUND(AVG(COALESCE(lp.progress, 0))), 0) AS progress
+        FROM lessons l LEFT JOIN lesson_progress lp
+          ON lp.lesson_id = l.id AND lp.student_id = ?
+        WHERE l.course_id = ?`).get(req.user.id, course.id).progress;
+      return { ...course, progress };
+    });
     const themes = db.prepare('SELECT DISTINCT theme FROM courses WHERE theme IS NOT NULL').all();
 
     res.json({ title: '课程管理', courses, themes, filters: req.query });
@@ -93,7 +100,19 @@ exports.detail = (req, res) => {
       return res.status(400).json({ error: '课程不存在' });
     }
 
-    const lessons = db.prepare('SELECT * FROM lessons WHERE course_id = ? ORDER BY sort_order').all(id);
+    const lessons = db.prepare(`SELECT l.*, COALESCE(lp.progress, 0) AS progress,
+      COALESCE(lp.last_position, 0) AS last_position
+      FROM lessons l LEFT JOIN lesson_progress lp ON lp.lesson_id = l.id AND lp.student_id = ?
+      WHERE l.course_id = ? ORDER BY l.sort_order`).all(req.user.role === 'student' ? req.user.id : null, id);
+    const tasks = db.prepare(`SELECT t.*, l.title AS lesson_title FROM tasks t
+      JOIN lessons l ON l.id = t.lesson_id WHERE l.course_id = ?
+      ORDER BY l.sort_order, t.sort_order`).all(id);
+    const progress = req.user.role === 'student'
+      ? db.prepare(`SELECT COALESCE(ROUND(AVG(COALESCE(lp.progress, 0))), 0) AS progress
+          FROM lessons l LEFT JOIN lesson_progress lp
+            ON lp.lesson_id = l.id AND lp.student_id = ?
+          WHERE l.course_id = ?`).get(req.user.id, id).progress
+      : 0;
     const resources = db.prepare('SELECT * FROM resources WHERE course_id = ? ORDER BY created_at DESC').all(id);
     const enrollments = db.prepare(
       `SELECT e.*, u.real_name as student_name, u.username, s.name as school_name, c2.name as class_name
@@ -105,7 +124,7 @@ exports.detail = (req, res) => {
        ORDER BY e.enrolled_at DESC`
     ).all(id);
 
-    res.json({ title: course.title, course, lessons, resources, enrollments });
+    res.json({ title: course.title, course, lessons, tasks, progress, resources, enrollments });
   } catch (err) {
     console.error('课程详情错误:', err);
     res.status(500).json({ error: '操作失败，请稍后重试' });
@@ -234,7 +253,7 @@ exports.uploadResource = (req, res) => {
 exports.addTask = (req, res) => {
   try {
     const { lesson_id } = req.params;
-    const { title, description, task_type, require_upload } = req.body;
+    const { title, description, task_type, require_upload, deadline } = req.body;
 
     if (!title) {
       return res.status(400).json({ error: '任务名称不能为空' });
@@ -251,15 +270,43 @@ exports.addTask = (req, res) => {
     const maxOrder = db.prepare('SELECT MAX(sort_order) as max_order FROM tasks WHERE lesson_id = ?').get(lesson_id);
 
     db.prepare(
-      `INSERT INTO tasks (lesson_id, title, description, task_type, require_upload, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?)`
+      `INSERT INTO tasks (lesson_id, title, description, task_type, require_upload, sort_order, deadline)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
     ).run(lesson_id, title, description || null, task_type || 'inquiry',
-          require_upload === 'on' ? 1 : 0, (maxOrder.max_order || 0) + 1);
+         require_upload === undefined
+           ? 1
+           : require_upload === true || require_upload === 'on' || require_upload === 1 || require_upload === '1' ? 1 : 0,
+         (maxOrder.max_order || 0) + 1, deadline || null);
 
     res.json({ message: '任务添加成功' });
   } catch (err) {
     console.error('添加任务错误:', err);
     res.status(500).json({ error: '操作失败，请稍后重试' });
+  }
+};
+
+exports.updateProgress = (req, res) => {
+  try {
+    const lessonId = Number(req.body.lesson_id);
+    const progress = Math.max(0, Math.min(100, Number(req.body.progress) || 0));
+    const position = Math.max(0, Number(req.body.last_position) || 0);
+    const enrollment = db.prepare(`
+      SELECT c.id FROM courses c
+      JOIN enrollments e ON e.course_id = c.id AND e.student_id = ?
+      WHERE c.id = ? AND c.status = 'published'
+    `).get(req.user.id, req.params.id);
+    if (!enrollment) return res.status(403).json({ error: '请先选课后再学习' });
+    const lesson = db.prepare('SELECT id FROM lessons WHERE id = ? AND course_id = ?').get(lessonId, req.params.id);
+    if (!lesson) return res.status(400).json({ error: '课时不属于当前课程' });
+    db.prepare(`INSERT INTO lesson_progress (student_id, lesson_id, progress, last_position, completed_at)
+      VALUES (?, ?, ?, ?, CASE WHEN ? = 100 THEN CURRENT_TIMESTAMP ELSE NULL END)
+      ON CONFLICT(student_id, lesson_id) DO UPDATE SET progress=excluded.progress,
+      last_position=excluded.last_position, completed_at=excluded.completed_at, updated_at=CURRENT_TIMESTAMP`)
+      .run(req.user.id, lessonId, progress, position, progress);
+    res.json({ message: '学习进度已保存', progress });
+  } catch (err) {
+    console.error('保存学习进度错误:', err);
+    res.status(500).json({ error: '保存学习进度失败' });
   }
 };
 

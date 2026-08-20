@@ -33,7 +33,12 @@ exports.pendingTasks = (req, res) => {
       e.id AS enrollment_id FROM enrollments e JOIN courses c ON c.id=e.course_id
       JOIN lessons l ON l.course_id=c.id JOIN tasks t ON t.lesson_id=l.id
       WHERE e.student_id=? AND c.status='published' AND t.require_upload=1
-      AND NOT EXISTS (SELECT 1 FROM works w WHERE w.student_id=e.student_id AND w.task_id=t.id)
+      AND (
+        NOT EXISTS (SELECT 1 FROM works w WHERE w.student_id=e.student_id AND w.task_id=t.id)
+        OR (SELECT w.review_status FROM works w
+        WHERE w.student_id=e.student_id AND w.task_id=t.id
+        ORDER BY w.version DESC, w.created_at DESC, w.id DESC LIMIT 1) = 'rejected'
+      )
       ORDER BY t.created_at DESC`).all(req.user.id);
     res.json({ tasks });
   } catch (err) { res.status(500).json({ error: '加载待办任务失败' }); }
@@ -145,8 +150,8 @@ exports.upload = (req, res) => {
       return res.status(400).json({ error: '管理员不可上传作品' });
     }
 
-    if (!req.file) {
-      return res.status(400).json({ error: '请选择要上传的文件' });
+    if (!req.file && !req.body.description?.trim()) {
+      return res.status(400).json({ error: '请填写成果内容或选择文件' });
     }
 
     const { title, description, enrollment_id, task_id, student_id, parent_work_id } = req.body;
@@ -179,6 +184,7 @@ exports.upload = (req, res) => {
     }
 
     let enrollmentCourseId = null;
+    let resolvedEnrollmentId = enrollment_id || null;
     if (enrollment_id) {
       const enrollment = db.prepare(
         'SELECT id, course_id FROM enrollments WHERE id = ? AND student_id = ?'
@@ -192,7 +198,7 @@ exports.upload = (req, res) => {
 
     if (task_id) {
       const task = db.prepare(`
-        SELECT t.id, l.course_id
+        SELECT t.id, t.require_upload, l.course_id
         FROM tasks t
         JOIN lessons l ON l.id = t.lesson_id
         WHERE t.id = ?
@@ -201,10 +207,30 @@ exports.upload = (req, res) => {
         removeUploadedFile(req.file);
         return res.status(400).json({ error: '所选任务不属于当前课程' });
       }
+      if (task.require_upload && !req.file) {
+        return res.status(400).json({ error: '该任务必须上传附件' });
+      }
+      const taskEnrollment = db.prepare(
+        'SELECT id FROM enrollments WHERE student_id = ? AND course_id = ?'
+      ).get(actualStudentId, task.course_id);
+      if (!taskEnrollment) {
+        removeUploadedFile(req.file);
+        return res.status(403).json({ error: '请先选课后再提交该任务' });
+      }
+      resolvedEnrollmentId = taskEnrollment.id;
+      if (!parent_work_id) {
+        const existingWork = db.prepare(
+          'SELECT id FROM works WHERE student_id = ? AND task_id = ? LIMIT 1'
+        ).get(actualStudentId, task_id);
+        if (existingWork) {
+          removeUploadedFile(req.file);
+          return res.status(400).json({ error: '该任务已有作品，请通过重新提交创建新版本' });
+        }
+      }
     }
 
-    const ext = path.extname(req.file.originalname).toLowerCase();
-    const displayType = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext) ? 'image' :
+    const ext = req.file ? path.extname(req.file.originalname).toLowerCase() : '';
+    const displayType = !req.file ? 'text' : ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext) ? 'image' :
                         ['.mp4', '.webm'].includes(ext) ? 'video' :
                         ext === '.pdf' ? 'pdf' : 'file';
 
@@ -212,28 +238,40 @@ exports.upload = (req, res) => {
     let parentId = null;
     if (parent_work_id) {
       const old = db.prepare('SELECT * FROM works WHERE id = ? AND student_id = ?').get(parent_work_id, actualStudentId);
-      if (!old || old.review_status !== 'rejected') { removeUploadedFile(req.file); return res.status(400).json({ error: '该作品不可重新提交' }); }
-      parentId = old.parent_work_id || old.id;
+      const rootId = old?.parent_work_id || old?.id;
+      const submittedTaskId = task_id ? Number(task_id) : null;
+      const submittedEnrollmentId = resolvedEnrollmentId ? Number(resolvedEnrollmentId) : null;
+      const latest = rootId ? db.prepare(
+        'SELECT id FROM works WHERE id = ? OR parent_work_id = ? ORDER BY version DESC, created_at DESC, id DESC LIMIT 1'
+      ).get(rootId, rootId) : null;
+      if (!old || old.review_status !== 'rejected'
+          || old.task_id !== submittedTaskId
+          || old.enrollment_id !== submittedEnrollmentId
+          || latest?.id !== old.id) {
+        removeUploadedFile(req.file);
+        return res.status(400).json({ error: '该作品不可重新提交' });
+      }
+      parentId = rootId;
       version = db.prepare('SELECT COALESCE(MAX(version), 1) + 1 AS version FROM works WHERE id = ? OR parent_work_id = ?').get(parentId, parentId).version;
     }
     const insertResult = db.prepare(
       `INSERT INTO works (student_id, enrollment_id, task_id, title, description,
         file_path, file_type, file_size, parent_work_id, version)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(actualStudentId, enrollment_id || null, task_id || null, title,
-          description || null, req.file.path, displayType, req.file.size, parentId, version);
+    ).run(actualStudentId, resolvedEnrollmentId, task_id || null, title,
+          description || null, req.file?.path || null, displayType, req.file?.size || null, parentId, version);
 
     db.prepare("INSERT INTO growth_records (student_id,event_type,description) VALUES (?,'system',?)").run(actualStudentId, `提交作品《${title}》`);
     const workCount = db.prepare('SELECT COUNT(*) count FROM works WHERE student_id=?').get(actualStudentId).count;
     if (workCount % 3 === 0) db.prepare("INSERT INTO growth_records (student_id,event_type,description) VALUES (?,'system',?)").run(actualStudentId, `累计完成 ${workCount} 个作品`);
 
     const workId = Number(insertResult.lastInsertRowid);
-    const courseOwner = enrollment_id ? db.prepare(`
+    const courseOwner = resolvedEnrollmentId ? db.prepare(`
       SELECT c.created_by
       FROM enrollments e
       JOIN courses c ON c.id = e.course_id
       WHERE e.id = ?
-    `).get(enrollment_id) : null;
+    `).get(resolvedEnrollmentId) : null;
     const resubmitted = Boolean(parentId);
     notifyWorkRecipients({ id: workId }, {
       eventKey: resubmitted ? NOTIFICATION_EVENTS.WORK_RESUBMITTED : NOTIFICATION_EVENTS.WORK_SUBMITTED,

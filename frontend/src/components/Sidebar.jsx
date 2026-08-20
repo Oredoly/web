@@ -7,6 +7,7 @@ import {
   FileTextOutlined,
   FolderOpenOutlined,
   FormOutlined,
+  CheckSquareOutlined,
   RobotOutlined,
   MessageOutlined,
   BellOutlined,
@@ -59,6 +60,7 @@ const menuItems = {
   student: [
     { key: '/dashboard', icon: <DashboardOutlined />, label: '我的工作台' },
     { key: '/courses', icon: <BookOutlined />, label: '课程中心' },
+    { key: '/tasks', icon: <CheckSquareOutlined />, label: '任务总览' },
     { key: '/works', icon: <FileTextOutlined />, label: '我的作品' },
     { key: '/works/upload', icon: <FormOutlined />, label: '上传作品' },
     { key: '/archives', icon: <FolderOpenOutlined />, label: '我的档案' },

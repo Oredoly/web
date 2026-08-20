@@ -107,11 +107,26 @@ CREATE TABLE IF NOT EXISTS tasks (
   task_type TEXT DEFAULT 'inquiry' CHECK(task_type IN ('inquiry','experiment','creation','reflection','presentation')),
   sort_order INTEGER DEFAULT 0,
   require_upload INTEGER DEFAULT 1,
+  deadline DATETIME,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
 );
 
--- 8. 课程资源
+-- 8. 课时学习进度
+CREATE TABLE IF NOT EXISTS lesson_progress (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  student_id INTEGER NOT NULL,
+  lesson_id INTEGER NOT NULL,
+  progress INTEGER DEFAULT 0 CHECK(progress BETWEEN 0 AND 100),
+  last_position INTEGER DEFAULT 0,
+  completed_at DATETIME,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE,
+  UNIQUE(student_id, lesson_id)
+);
+
+-- 9. 课程资源
 CREATE TABLE IF NOT EXISTS resources (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   course_id INTEGER NOT NULL,
