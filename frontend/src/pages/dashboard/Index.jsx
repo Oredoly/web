@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Row, Col, Card, Statistic, Table, Tag, List, Typography, Button, Spin } from 'antd';
+import { Row, Col, Card, Statistic, Table, Tag, List, Typography, Button, Spin, Modal, Form, Input, message } from 'antd';
 import { BookOutlined, TeamOutlined, FileTextOutlined, BankOutlined, PlusOutlined } from '@ant-design/icons';
 import { dashboardAPI } from '../../api';
 import { useAuth } from '../../store/AuthContext';
@@ -11,11 +11,25 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [addSchoolOpen, setAddSchoolOpen] = useState(false);
+  const [schoolForm] = Form.useForm();
   const navigate = useNavigate();
 
-  useEffect(() => {
+  const loadData = () => {
     dashboardAPI.getIndex().then(setData).finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { loadData(); }, []);
+
+  const handleAddSchool = async (values) => {
+    try {
+      await dashboardAPI.addSchool(values);
+      message.success('学校添加成功');
+      setAddSchoolOpen(false);
+      schoolForm.resetFields();
+      loadData();
+    } catch { /* handled */ }
+  };
 
   if (loading) return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />;
   if (!data) return <Text type="danger">加载失败</Text>;
@@ -55,7 +69,7 @@ export default function Dashboard() {
         {/* 管理员：学校列表 */}
         {user?.role === 'admin' && data.schools && (
           <Col span={24}>
-            <Card title="加盟学校" extra={<Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => navigate('/dashboard/schools/add')}>添加学校</Button>}>
+            <Card title="加盟学校" extra={<Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => setAddSchoolOpen(true)}>添加学校</Button>}>
               <Table dataSource={data.schools} rowKey="id" pagination={false} size="small"
                 columns={[
                   { title: '学校名称', dataIndex: 'name', key: 'name', render: (text, r) => <a onClick={() => navigate(`/dashboard/schools/${r.id}`)}>{text}</a> },
@@ -65,6 +79,18 @@ export default function Dashboard() {
                 ]}
               />
             </Card>
+
+            <Modal title="添加加盟学校" open={addSchoolOpen} onCancel={() => setAddSchoolOpen(false)} onOk={() => schoolForm.submit()}>
+              <Form form={schoolForm} layout="vertical" onFinish={handleAddSchool}>
+                <Form.Item name="name" label="学校名称" rules={[{ required: true, message: '请输入学校名称' }]}>
+                  <Input placeholder="如：北京市第一小学" />
+                </Form.Item>
+                <Form.Item name="region" label="地区"><Input placeholder="如：北京市海淀区" /></Form.Item>
+                <Form.Item name="contact_person" label="联系人"><Input /></Form.Item>
+                <Form.Item name="contact_phone" label="联系电话"><Input /></Form.Item>
+                <Form.Item name="description" label="简介"><Input.TextArea rows={3} /></Form.Item>
+              </Form>
+            </Modal>
           </Col>
         )}
 
