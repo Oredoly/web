@@ -13,6 +13,7 @@ export default function TaskDetail() {
   const { task, works } = data;
   const rejectedWork = works.find((work) => work.review_status === 'rejected');
   const uploadParams = new URLSearchParams({ task_id: String(task.id) });
+  if (task.enrollment_id) uploadParams.set('enrollment_id', String(task.enrollment_id));
   if (rejectedWork) uploadParams.set('parent_work_id', String(rejectedWork.id));
   return <div><Space style={{ marginBottom: 16 }}><Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/tasks')}>返回任务</Button><Typography.Title level={4} style={{ margin: 0 }}>{task.title}</Typography.Title></Space>
     <Card><Descriptions column={1} bordered><Descriptions.Item label="所属课程">{task.course_title}</Descriptions.Item><Descriptions.Item label="探究阶段">{task.lesson_title}</Descriptions.Item><Descriptions.Item label="任务状态"><Tag>{statusText[task.status]}</Tag></Descriptions.Item><Descriptions.Item label="截止时间">{task.deadline || '未设置'}</Descriptions.Item><Descriptions.Item label="任务目标与指引">{task.description || '暂无说明'}</Descriptions.Item></Descriptions>

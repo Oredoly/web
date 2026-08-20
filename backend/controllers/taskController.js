@@ -45,13 +45,16 @@ exports.detail = (req, res) => {
     if (!task) return res.status(404).json({ error: '任务不存在' });
 
     const userId = req.user.role === 'student' ? req.user.id : null;
+    const enrollment = userId
+      ? db.prepare('SELECT id FROM enrollments WHERE student_id = ? AND course_id = ?').get(userId, task.course_id)
+      : null;
     const works = userId ? db.prepare(`
       SELECT w.id, w.title, w.description, w.file_path, w.file_type, w.review_status, w.reject_reason,
         w.version, w.created_at, r.comment AS review_comment, r.suggestion AS review_suggestion
       FROM works w LEFT JOIN work_reviews r ON r.work_id = w.id
       WHERE w.task_id = ? AND w.student_id = ? ORDER BY w.version DESC
     `).all(task.id, userId) : [];
-    res.json({ task: { ...task, status: taskStatus(task, userId) }, works });
+    res.json({ task: { ...task, enrollment_id: enrollment?.id || null, status: taskStatus(task, userId) }, works });
   } catch (err) {
     console.error('任务详情错误:', err);
     res.status(500).json({ error: '加载任务详情失败' });
