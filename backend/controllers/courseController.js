@@ -273,7 +273,9 @@ exports.addTask = (req, res) => {
       `INSERT INTO tasks (lesson_id, title, description, task_type, require_upload, sort_order, deadline)
        VALUES (?, ?, ?, ?, ?, ?, ?)`
     ).run(lesson_id, title, description || null, task_type || 'inquiry',
-         require_upload === true || require_upload === 'on' || require_upload === 1 ? 1 : 0,
+         require_upload === undefined
+           ? 1
+           : require_upload === true || require_upload === 'on' || require_upload === 1 || require_upload === '1' ? 1 : 0,
          (maxOrder.max_order || 0) + 1, deadline || null);
 
     res.json({ message: '任务添加成功' });

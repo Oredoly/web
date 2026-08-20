@@ -192,7 +192,7 @@ exports.upload = (req, res) => {
 
     if (task_id) {
       const task = db.prepare(`
-        SELECT t.id, l.course_id
+        SELECT t.id, t.require_upload, l.course_id
         FROM tasks t
         JOIN lessons l ON l.id = t.lesson_id
         WHERE t.id = ?
@@ -200,6 +200,9 @@ exports.upload = (req, res) => {
       if (!task || (enrollmentCourseId && task.course_id !== enrollmentCourseId)) {
         removeUploadedFile(req.file);
         return res.status(400).json({ error: '所选任务不属于当前课程' });
+      }
+      if (task.require_upload && !req.file) {
+        return res.status(400).json({ error: '该任务必须上传附件' });
       }
       if (!parent_work_id) {
         const existingWork = db.prepare(

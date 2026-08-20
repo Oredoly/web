@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Descriptions, Table, Button, Tag, Tabs, Form, Input, Modal, Space, Typography, message, Progress, List, Select } from 'antd';
+import { Card, Descriptions, Table, Button, Tag, Tabs, Form, Input, Modal, Space, Typography, message, Progress, Checkbox, Select } from 'antd';
 import { ArrowLeftOutlined, PlusOutlined } from '@ant-design/icons';
 import { courseAPI } from '../../api';
 import { useAuth } from '../../store/AuthContext';
@@ -165,6 +165,9 @@ export default function CourseDetail() {
           <Form.Item name="description" label="描述"><Input.TextArea rows={2} /></Form.Item>
           <Form.Item name="task_type" label="任务类型" initialValue="inquiry">
             <Select options={[['inquiry', '调研'], ['experiment', '实验'], ['creation', '创作'], ['reflection', '反思'], ['presentation', '展示']].map(([value, label]) => ({ value, label }))} />
+          </Form.Item>
+          <Form.Item name="require_upload" valuePropName="checked" initialValue>
+            <Checkbox>要求上传附件</Checkbox>
           </Form.Item>
           <Form.Item name="deadline" label="截止时间"><Input type="datetime-local" /></Form.Item>
         </Form>
