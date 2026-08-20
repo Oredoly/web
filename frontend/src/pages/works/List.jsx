@@ -4,9 +4,12 @@ import { Table, Card, Button, Tag, Space, Input, Typography, List, Select } from
 import { PlusOutlined, EyeOutlined } from '@ant-design/icons';
 import { workAPI } from '../../api';
 import { useAuth } from '../../store/AuthContext';
+import { formatBeijingTime } from '../../utils/date';
 
 const { Title } = Typography;
-const statusMap = { pending: ['orange', '待批改'], approved: ['green', '通过'], rejected: ['red', '需修改'] };
+const getStatus = (work) => work.review_status === 'rejected' && work.has_newer_version
+  ? ['blue', '已修改']
+  : ({ pending: ['orange', '待批改'], approved: ['green', '通过'], rejected: ['red', '需修改'] }[work.review_status] || ['', work.review_status]);
 
 export default function WorkList() {
   const { user } = useAuth();
@@ -19,7 +22,6 @@ export default function WorkList() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
     workAPI.list({ search, course_id: courseId }).then((res) => { setWorks(res.works || []); setCourses(res.courses || []); }).finally(() => setLoading(false));
   }, [search, courseId]);
   useEffect(() => { if (user?.role === 'student') workAPI.pendingTasks().then((res) => setTasks(res.tasks || [])); }, [user]);
@@ -27,8 +29,8 @@ export default function WorkList() {
   const columns = [
     { title: '作品标题', dataIndex: 'title', render: (text, row) => <a onClick={() => navigate(`/works/${row.id}`)}>{text}</a> },
     { title: '学生', dataIndex: 'student_name' }, { title: '课程', dataIndex: 'course_title' }, { title: '任务', dataIndex: 'task_title' },
-    { title: '状态', dataIndex: 'review_status', render: (value) => <Tag color={(statusMap[value] || [])[0]}>{(statusMap[value] || [value, value])[1]}</Tag> },
-    { title: '提交时间', dataIndex: 'created_at' },
+    { title: '状态', dataIndex: 'review_status', render: (_, row) => <Tag color={getStatus(row)[0]}>{getStatus(row)[1]}</Tag> },
+    { title: '提交时间', dataIndex: 'created_at', render: formatBeijingTime },
     { title: '操作', render: (_, row) => <Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/works/${row.id}`)}>查看</Button> },
   ];
 
