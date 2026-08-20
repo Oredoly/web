@@ -18,8 +18,11 @@ function taskQuery(userId) {
     JOIN lessons l ON l.id = t.lesson_id
     JOIN courses c ON c.id = l.course_id
     WHERE c.status = 'published'
+      AND (? IS NULL OR EXISTS (
+        SELECT 1 FROM enrollments e WHERE e.course_id = c.id AND e.student_id = ?
+      ))
     ORDER BY c.title, l.sort_order, t.sort_order, t.created_at
-  `).all(userId || null, userId || null);
+  `).all(userId || null, userId || null, userId || null, userId || null);
   return tasks.map((task) => ({ ...task, status: taskStatus(task, userId) }));
 }
 
@@ -48,6 +51,7 @@ exports.detail = (req, res) => {
     const enrollment = userId
       ? db.prepare('SELECT id FROM enrollments WHERE student_id = ? AND course_id = ?').get(userId, task.course_id)
       : null;
+    if (userId && !enrollment) return res.status(404).json({ error: '任务不存在' });
     const works = userId ? db.prepare(`
       SELECT w.id, w.title, w.description, w.file_path, w.file_type, w.review_status, w.reject_reason,
         w.version, w.created_at, r.comment AS review_comment, r.suggestion AS review_suggestion

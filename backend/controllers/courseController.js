@@ -290,6 +290,12 @@ exports.updateProgress = (req, res) => {
     const lessonId = Number(req.body.lesson_id);
     const progress = Math.max(0, Math.min(100, Number(req.body.progress) || 0));
     const position = Math.max(0, Number(req.body.last_position) || 0);
+    const enrollment = db.prepare(`
+      SELECT c.id FROM courses c
+      JOIN enrollments e ON e.course_id = c.id AND e.student_id = ?
+      WHERE c.id = ? AND c.status = 'published'
+    `).get(req.user.id, req.params.id);
+    if (!enrollment) return res.status(403).json({ error: '请先选课后再学习' });
     const lesson = db.prepare('SELECT id FROM lessons WHERE id = ? AND course_id = ?').get(lessonId, req.params.id);
     if (!lesson) return res.status(400).json({ error: '课时不属于当前课程' });
     db.prepare(`INSERT INTO lesson_progress (student_id, lesson_id, progress, last_position, completed_at)

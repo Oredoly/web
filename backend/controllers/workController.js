@@ -184,6 +184,7 @@ exports.upload = (req, res) => {
     }
 
     let enrollmentCourseId = null;
+    let resolvedEnrollmentId = enrollment_id || null;
     if (enrollment_id) {
       const enrollment = db.prepare(
         'SELECT id, course_id FROM enrollments WHERE id = ? AND student_id = ?'
@@ -209,6 +210,14 @@ exports.upload = (req, res) => {
       if (task.require_upload && !req.file) {
         return res.status(400).json({ error: '该任务必须上传附件' });
       }
+      const taskEnrollment = db.prepare(
+        'SELECT id FROM enrollments WHERE student_id = ? AND course_id = ?'
+      ).get(actualStudentId, task.course_id);
+      if (!taskEnrollment) {
+        removeUploadedFile(req.file);
+        return res.status(403).json({ error: '请先选课后再提交该任务' });
+      }
+      resolvedEnrollmentId = taskEnrollment.id;
       if (!parent_work_id) {
         const existingWork = db.prepare(
           'SELECT id FROM works WHERE student_id = ? AND task_id = ? LIMIT 1'
@@ -237,7 +246,7 @@ exports.upload = (req, res) => {
       `INSERT INTO works (student_id, enrollment_id, task_id, title, description,
         file_path, file_type, file_size, parent_work_id, version)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(actualStudentId, enrollment_id || null, task_id || null, title,
+    ).run(actualStudentId, resolvedEnrollmentId, task_id || null, title,
           description || null, req.file?.path || null, displayType, req.file?.size || null, parentId, version);
 
     db.prepare("INSERT INTO growth_records (student_id,event_type,description) VALUES (?,'system',?)").run(actualStudentId, `提交作品《${title}》`);
@@ -245,12 +254,12 @@ exports.upload = (req, res) => {
     if (workCount % 3 === 0) db.prepare("INSERT INTO growth_records (student_id,event_type,description) VALUES (?,'system',?)").run(actualStudentId, `累计完成 ${workCount} 个作品`);
 
     const workId = Number(insertResult.lastInsertRowid);
-    const courseOwner = enrollment_id ? db.prepare(`
+    const courseOwner = resolvedEnrollmentId ? db.prepare(`
       SELECT c.created_by
       FROM enrollments e
       JOIN courses c ON c.id = e.course_id
       WHERE e.id = ?
-    `).get(enrollment_id) : null;
+    `).get(resolvedEnrollmentId) : null;
     const resubmitted = Boolean(parentId);
     notifyWorkRecipients({ id: workId }, {
       eventKey: resubmitted ? NOTIFICATION_EVENTS.WORK_RESUBMITTED : NOTIFICATION_EVENTS.WORK_SUBMITTED,
