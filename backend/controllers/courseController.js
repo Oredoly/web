@@ -266,7 +266,7 @@ exports.addTask = (req, res) => {
     const maxOrder = db.prepare('SELECT MAX(sort_order) as max_order FROM tasks WHERE lesson_id = ?').get(lesson_id);
 
     db.prepare(
-      `INSERT INTO tasks (lesson_id, title, description, task_type, require_upload, sort_order)
+      `INSERT INTO tasks (lesson_id, title, description, task_type, require_upload, sort_order, deadline)
        VALUES (?, ?, ?, ?, ?, ?, ?)`
     ).run(lesson_id, title, description || null, task_type || 'inquiry',
          require_upload === true || require_upload === 'on' || require_upload === 1 ? 1 : 0,
