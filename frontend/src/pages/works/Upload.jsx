@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, Form, Input, Select, Upload, Button, Typography, message, Space } from 'antd';
 import { UploadOutlined, ArrowLeftOutlined } from '@ant-design/icons';
-import { workAPI, courseAPI } from '../../api';
+import { workAPI } from '../../api';
 import { useAuth } from '../../store/AuthContext';
 
 const { Title } = Typography;
@@ -27,11 +27,10 @@ export default function WorkUpload() {
   }, []);
 
   const onFinish = async (values) => {
-    if (!file) { message.error('请选择文件'); return; }
     setLoading(true);
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      if (file) formData.append('file', file);
       formData.append('title', values.title);
       formData.append('description', values.description || '');
       formData.append('enrollment_id', values.enrollment_id || '');
