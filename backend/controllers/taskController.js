@@ -2,7 +2,7 @@ const db = require('../config/database');
 
 function taskStatus(task, userId) {
   if (!userId) return 'pending';
-  const work = db.prepare('SELECT review_status FROM works WHERE student_id = ? AND task_id = ? ORDER BY version DESC LIMIT 1').get(userId, task.id);
+  const work = db.prepare('SELECT review_status FROM works WHERE student_id = ? AND task_id = ? ORDER BY version DESC, created_at DESC, id DESC LIMIT 1').get(userId, task.id);
   if (!work) return 'pending';
   if (work.review_status === 'approved') return 'completed';
   if (work.review_status === 'rejected') return 'in_progress';
@@ -12,8 +12,8 @@ function taskStatus(task, userId) {
 function taskQuery(userId) {
   const tasks = db.prepare(`
     SELECT t.*, l.title AS lesson_title, l.course_id, c.title AS course_title,
-      (SELECT review_status FROM works WHERE task_id = t.id AND student_id = ? ORDER BY version DESC LIMIT 1) AS review_status,
-      (SELECT id FROM works WHERE task_id = t.id AND student_id = ? ORDER BY version DESC LIMIT 1) AS work_id
+      (SELECT review_status FROM works WHERE task_id = t.id AND student_id = ? ORDER BY version DESC, created_at DESC, id DESC LIMIT 1) AS review_status,
+      (SELECT id FROM works WHERE task_id = t.id AND student_id = ? ORDER BY version DESC, created_at DESC, id DESC LIMIT 1) AS work_id
     FROM tasks t
     JOIN lessons l ON l.id = t.lesson_id
     JOIN courses c ON c.id = l.course_id
