@@ -239,12 +239,14 @@ exports.upload = (req, res) => {
     if (parent_work_id) {
       const old = db.prepare('SELECT * FROM works WHERE id = ? AND student_id = ?').get(parent_work_id, actualStudentId);
       const rootId = old?.parent_work_id || old?.id;
+      const submittedTaskId = task_id ? Number(task_id) : null;
+      const submittedEnrollmentId = resolvedEnrollmentId ? Number(resolvedEnrollmentId) : null;
       const latest = rootId ? db.prepare(
         'SELECT id FROM works WHERE id = ? OR parent_work_id = ? ORDER BY version DESC, created_at DESC, id DESC LIMIT 1'
       ).get(rootId, rootId) : null;
       if (!old || old.review_status !== 'rejected'
-          || !task_id || old.task_id !== Number(task_id)
-          || old.enrollment_id !== Number(resolvedEnrollmentId)
+          || old.task_id !== submittedTaskId
+          || old.enrollment_id !== submittedEnrollmentId
           || latest?.id !== old.id) {
         removeUploadedFile(req.file);
         return res.status(400).json({ error: '该作品不可重新提交' });
