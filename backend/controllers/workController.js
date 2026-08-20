@@ -201,6 +201,15 @@ exports.upload = (req, res) => {
         removeUploadedFile(req.file);
         return res.status(400).json({ error: '所选任务不属于当前课程' });
       }
+      if (!parent_work_id) {
+        const existingWork = db.prepare(
+          'SELECT id FROM works WHERE student_id = ? AND task_id = ? LIMIT 1'
+        ).get(actualStudentId, task_id);
+        if (existingWork) {
+          removeUploadedFile(req.file);
+          return res.status(400).json({ error: '该任务已有作品，请通过重新提交创建新版本' });
+        }
+      }
     }
 
     const ext = req.file ? path.extname(req.file.originalname).toLowerCase() : '';
