@@ -4,6 +4,10 @@ export const authAPI = {
   login: (real_name, password) => client.post('/auth/login', { real_name, password }),
   register: (data) => client.post('/auth/register', data),
   me: () => client.get('/auth/me'),
+  refresh: (refresh_token) => client.post('/auth/refresh', { refresh_token }),
+  logout: (refresh_token) => client.post('/auth/logout', { refresh_token }),
+  changePassword: (data) => client.post('/auth/change-password', data),
+  adminResetPassword: (userId) => client.post('/auth/admin/reset-password', { user_id: userId }),
   getSchools: () => client.get('/auth/schools'),
   getClasses: (schoolId) => client.get(`/auth/classes?school_id=${schoolId}`),
 };
@@ -40,6 +44,9 @@ export const studentAPI = {
   update: (id, data) => client.put(`/students/${id}`, data),
   delete: (id) => client.delete(`/students/${id}`),
   batchImport: (data) => client.post('/students/import', data),
+  importFile: (formData) => client.post('/students/import', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
   getClasses: (schoolId) => client.get(`/students/classes/${schoolId}`),
   createSchool: (data) => client.post('/students/schools', data),
   deleteSchool: (id) => client.delete(`/students/schools/${id}`),
@@ -49,6 +56,8 @@ export const studentAPI = {
   updateUser: (id, data) => client.put(`/students/users/${id}`, data),
   deleteUser: (id) => client.delete(`/students/users/${id}`),
   batchDeleteUsers: (ids) => client.post('/students/users/batch-delete', { ids }),
+  getAssignOptions: () => client.get('/students/options'),
+  assign: (id, data) => client.put(`/students/${id}/assign`, data),
 };
 
 export const workAPI = {

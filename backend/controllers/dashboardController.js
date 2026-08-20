@@ -150,7 +150,13 @@ exports.index = (req, res) => {
 };
 
 exports.showAddSchool = (req, res) => {
-  res.json({ title: '添加加盟学校', school: {}, errors: [] });
+  try {
+    const schools = db.prepare('SELECT id, name FROM schools ORDER BY name').all();
+    res.json({ title: '添加加盟学校', school: {}, schools, errors: [] });
+  } catch (err) {
+    console.error('加载学校列表错误:', err);
+    res.status(500).json({ error: '操作失败，请稍后重试' });
+  }
 };
 
 exports.addSchool = (req, res) => {
