@@ -14,9 +14,10 @@ export default function Login() {
   const onFinish = async (values) => {
     setLoading(true);
     try {
-      await login(values.real_name, values.password);
+      const user = await login(values.real_name, values.password);
       message.success('登录成功');
-      navigate('/dashboard');
+      // 若管理员重置过密码，强制先修改密码
+      navigate(user?.force_reset_password ? '/change-password' : '/dashboard');
     } catch {
       // 错误已在拦截器中处理
     } finally {

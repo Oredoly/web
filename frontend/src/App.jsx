@@ -5,6 +5,7 @@ import { AuthProvider } from './store/AuthContext';
 import AppLayout from './components/AppLayout';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
+import ChangePassword from './pages/auth/ChangePassword';
 import Dashboard from './pages/dashboard/Index';
 import SchoolDetail from './pages/dashboard/School';
 import CourseList from './pages/courses/List';
@@ -34,6 +35,7 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/" element={<AppLayout />}>
+                <Route path="change-password" element={<ChangePassword />} />
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="dashboard/schools/:id" element={<SchoolDetail />} />

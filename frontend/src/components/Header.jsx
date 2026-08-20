@@ -1,5 +1,5 @@
 import { Layout, Dropdown, Space, Avatar, Tag } from 'antd';
-import { UserOutlined, LogoutOutlined } from '@ant-design/icons';
+import { UserOutlined, LogoutOutlined, KeyOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
 
@@ -32,7 +32,10 @@ export default function HeaderBar() {
       borderBottom: '1px solid #f0f0f0', height: 56
     }}>
       <Dropdown menu={{
-        items: [{ key: 'logout', icon: <LogoutOutlined />, label: '退出登录', onClick: handleLogout }]
+        items: [
+          { key: 'change-password', icon: <KeyOutlined />, label: '修改密码', onClick: () => navigate('/change-password') },
+          { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', onClick: handleLogout }
+        ]
       }}>
         <Space style={{ cursor: 'pointer' }}>
           <Avatar size="small" icon={<UserOutlined />} />
