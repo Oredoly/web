@@ -15,6 +15,14 @@ export default function Learning() {
   const load = async () => setData(await courseAPI.detail(id));
   useEffect(() => { load().catch(() => message.error('加载学习内容失败')); }, [id]);
   if (!data) return null;
+  if (data.lessons.length === 0) {
+    return <Card>
+      <Space direction="vertical">
+        <Title level={4}>课程暂无课时</Title>
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(`/courses/${id}`)}>返回课程</Button>
+      </Space>
+    </Card>;
+  }
   const lesson = data.lessons[active];
   const saveProgress = async (progress) => {
     await courseAPI.updateProgress(id, { lesson_id: lesson.id, progress, last_position: progress });
