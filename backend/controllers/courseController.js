@@ -33,9 +33,10 @@ exports.list = (req, res) => {
 
     const courses = db.prepare(sql).all(...params).map((course) => {
       if (req.user.role !== 'student') return { ...course, progress: 0 };
-      const progress = db.prepare(`SELECT COALESCE(ROUND(AVG(progress)), 0) AS progress
-        FROM lesson_progress lp JOIN lessons l ON l.id = lp.lesson_id
-        WHERE lp.student_id = ? AND l.course_id = ?`).get(req.user.id, course.id).progress;
+      const progress = db.prepare(`SELECT COALESCE(ROUND(AVG(COALESCE(lp.progress, 0))), 0) AS progress
+        FROM lessons l LEFT JOIN lesson_progress lp
+          ON lp.lesson_id = l.id AND lp.student_id = ?
+        WHERE l.course_id = ?`).get(req.user.id, course.id).progress;
       return { ...course, progress };
     });
     const themes = db.prepare('SELECT DISTINCT theme FROM courses WHERE theme IS NOT NULL').all();
@@ -107,7 +108,10 @@ exports.detail = (req, res) => {
       JOIN lessons l ON l.id = t.lesson_id WHERE l.course_id = ?
       ORDER BY l.sort_order, t.sort_order`).all(id);
     const progress = req.user.role === 'student'
-      ? db.prepare('SELECT COALESCE(ROUND(AVG(progress)), 0) AS progress FROM lesson_progress lp JOIN lessons l ON l.id = lp.lesson_id WHERE lp.student_id = ? AND l.course_id = ?').get(req.user.id, id).progress
+      ? db.prepare(`SELECT COALESCE(ROUND(AVG(COALESCE(lp.progress, 0))), 0) AS progress
+          FROM lessons l LEFT JOIN lesson_progress lp
+            ON lp.lesson_id = l.id AND lp.student_id = ?
+          WHERE l.course_id = ?`).get(req.user.id, id).progress
       : 0;
     const resources = db.prepare('SELECT * FROM resources WHERE course_id = ? ORDER BY created_at DESC').all(id);
     const enrollments = db.prepare(
