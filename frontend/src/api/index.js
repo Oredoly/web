@@ -73,6 +73,7 @@ export const workAPI = {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
   detail: (id) => client.get(`/works/${id}`),
+  download: (id) => client.get(`/works/${id}/download`, { responseType: 'blob' }),
   delete: (id) => client.delete(`/works/${id}`),
   reject: (id, reason) => client.post(`/works/${id}/reject`, { reason }),
   pendingTasks: () => client.get('/works/pending-tasks'),

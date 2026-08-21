@@ -24,9 +24,13 @@ export default function WorkUpload() {
         if (searchParams.get('enrollment_id')) form.setFieldValue('enrollment_id', Number(searchParams.get('enrollment_id')));
       }).catch(() => {});
     }
-  }, []);
+  }, [form, searchParams, user?.role]);
 
   const onFinish = async (values) => {
+    if (!values.description?.trim() && !file) {
+      message.error('请填写成果内容或选择文件');
+      return;
+    }
     setLoading(true);
     try {
       const formData = new FormData();

@@ -127,7 +127,7 @@ export default function Dashboard() {
             <Card title="最近作品" style={{ marginBottom: 16 }}>
               <List dataSource={data.recentWorks.slice(0, 5)} renderItem={(w) => (
                 <List.Item>
-                  <List.Item.Meta title={w.title} description={`${w.student_name} · ${w.course_title || '—'}`} />
+                  <List.Item.Meta title={<a onClick={() => navigate(`/works/${w.id}`)}>{w.title}</a>} description={`${w.student_name} · ${w.course_title || '—'}`} />
                 </List.Item>
               )} />
             </Card>

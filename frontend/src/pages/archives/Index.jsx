@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Card, Tree, Button, Typography, Spin, Descriptions, Tag, List, Space, Progress, Modal, Input, message } from 'antd';
-import { FolderOpenOutlined, UserOutlined, FileTextOutlined } from '@ant-design/icons';
+import { UserOutlined, FileTextOutlined } from '@ant-design/icons';
 import { archiveAPI } from '../../api';
 import { useAuth } from '../../store/AuthContext';
 
@@ -17,6 +17,9 @@ export default function ArchiveIndex() {
   const [record, setRecord] = useState('');
 
   useEffect(() => {
+    if (user?.role === 'student') {
+      return;
+    }
     archiveAPI.getTree().then((res) => {
       const tree = res.tree || res;
       if (tree.schools) {
@@ -40,7 +43,7 @@ export default function ArchiveIndex() {
         })));
       }
     }).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+  }, [user?.role]);
 
   const handleSelect = async (keys) => {
     if (!keys.length) return;
